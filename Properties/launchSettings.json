@@ -8,7 +8,7 @@
     }
   },
   "profiles": {
-    "myWebApp": {
+    "DungeonPlanner": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,

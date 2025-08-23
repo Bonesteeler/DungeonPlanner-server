@@ -63,4 +63,4 @@ RUN adduser \
     appuser
 USER appuser
 
-ENTRYPOINT ["dotnet", "myWebApp.dll"]
+ENTRYPOINT ["dotnet", "DungeonPlanner.dll"]
