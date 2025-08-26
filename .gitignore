@@ -3,6 +3,8 @@ db/
 .vs/
 .vscode/
 
+test.http
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
