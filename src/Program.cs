@@ -55,22 +55,4 @@ app.MapRazorPages();
 
 app.MapControllers();
 
-// app.MapGet("/scenes", () => "Hello World!");
-
-// app.MapControllerRoute(
-//   name: "AddScene",
-//   pattern: "scenes/add"
-// );
-
-// app.MapPut("/scenes/add", ([FromBody] string jsonScene) =>
-// {
-//   Console.WriteLine(jsonScene);
-//   var deserializedScene = JsonSerializer.Deserialize<Scene>(jsonScene);
-//   var scene = deserializedScene ?? new Scene { Name = "Default Scene", Author = "Unknown", Tile = new List<string>() };
-//   var sceneContext = app.Services.GetRequiredService<SceneContext>();
-//   sceneContext.Scenes.Add(scene);
-//   sceneContext.SaveChanges();
-//   return "Added";
-// });
-
 app.Run();
