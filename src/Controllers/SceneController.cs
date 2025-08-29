@@ -35,7 +35,7 @@ namespace DungeonPlanner.Controllers
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetSceneById(int id)
+    public IActionResult GetSceneById(Guid id)
     {
       Console.WriteLine($"Fetching scene with ID: {id}");
       var context = _serviceProvider.GetService<SceneContext>();
