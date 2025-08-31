@@ -53,21 +53,33 @@ namespace DungeonPlanner.Controllers
     }
 
     [HttpPut("add")]
-    public IActionResult UpdateScene(Scene scene)
+    public IActionResult UpdateScene(JsonScene scene)
     {
-      Console.WriteLine(scene.Name);
-      Console.WriteLine(scene.Author);
+      var newScene = new Scene
+      {
+        Name = scene.Name,
+        Author = scene.Author,
+        Tiles = [.. scene.Tiles.Select(t => new Tile
+        {
+          TileID = t.TileID,
+          Rotation = (int)t.Rotation,
+          XPos = (int)t.XPos,
+          YPos = (int)t.YPos
+        })]
+      };
+      Console.WriteLine(newScene.Name);
+      Console.WriteLine(newScene.Author);
       var context = _serviceProvider.GetService<SceneContext>();
       if (context != null)
       {
         var uniqueIds = new HashSet<string>();
-        scene.Tiles.ForEach(tile =>
+        newScene.Tiles.ForEach(tile =>
         {
           context.Tiles.Add(tile);
           uniqueIds.Add(tile.TileID);
         });
-        scene.UniqueTileIDs = [.. uniqueIds];
-        context.Scenes.Add(scene);
+        newScene.UniqueTileIDs = [.. uniqueIds];
+        context.Scenes.Add(newScene);
         context.SaveChanges();
         Console.WriteLine(context.Scenes.Count());
         return Ok("Added");
