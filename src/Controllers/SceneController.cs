@@ -30,7 +30,11 @@ namespace DungeonPlanner.Controllers
       {
         return StatusCode(500, "Database context not available");
       }
-      var scenesToGet = context.Scenes.OrderBy(s => s.ID).Take(LIST_LIMIT).ToList();
+      var scenesToGet =
+        context.Scenes.OrderBy(s => s.ID)
+          .Take(LIST_LIMIT)
+          .Where(s => s.ModerationStatus == SceneModerationStatus.Approved)
+          .ToList();
       return Ok(scenesToGet);
     }
 
@@ -59,6 +63,7 @@ namespace DungeonPlanner.Controllers
       {
         Name = scene.Name,
         Author = scene.Author,
+        ModerationStatus = SceneModerationStatus.Approved,
         Tiles = [.. scene.Tiles.Select(t => new Tile
         {
           TileID = t.TileID,
