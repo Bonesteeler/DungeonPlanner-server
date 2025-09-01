@@ -1,4 +1,5 @@
 using DungeonPlanner.Data;
+using DungeonPlanner.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -18,7 +19,7 @@ namespace DungeonPlanner.Pages
 
         public void OnGet()
         {
-          this.SceneCount = _context.Scenes.Count();
+          this.SceneCount = _context.Scenes.Where(s => s.ModerationStatus == SceneModerationStatus.Pending).Count();
         }
     }
 }

@@ -63,7 +63,7 @@ namespace DungeonPlanner.Controllers
       {
         Name = scene.Name,
         Author = scene.Author,
-        ModerationStatus = SceneModerationStatus.Approved,
+        ModerationStatus = SceneModerationStatus.Pending,
         Tiles = [.. scene.Tiles.Select(t => new Tile
         {
           TileID = t.TileID,

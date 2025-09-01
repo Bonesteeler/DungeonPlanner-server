@@ -1,0 +1,42 @@
+@page
+@model ModerationModel
+@{
+  ViewData["Title"] = "Moderation";
+}
+
+<div class ="text-center">
+    <h1>Moderation Queue</h1>
+    <p>Queue Size: @Model.QueueSize</p>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Action</th>
+                <th>Scene ID</th>
+                <th>Scene Name</th>
+                <th>Author</th>
+                <th>Unique Tile IDs Count</th>
+                <th>Unique Tile IDs</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var scene in Model.PendingScenes)
+            {
+                <tr>
+                    <td>
+                        <form method="post" asp-page-handler="approve" asp-route-sceneId="@scene.ID">
+                            <button type="submit" class="btn btn-success">Approve</button>
+                        </form>
+                        <form method="post" asp-page-handler="reject" asp-route-sceneId="@scene.ID">
+                            <button type="submit" class="btn btn-danger">Reject</button>
+                        </form>
+                    </td>
+                    <td>@scene.ID</td>
+                    <td>@scene.Name</td>
+                    <td>@scene.Author</td>
+                    <td>@scene.UniqueTileIDs.Count</td>
+                    <td>@Model.UniqueTileIdsOfScene(scene)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
