@@ -1,0 +1,1 @@
+web: cd DungeonPlanner/bin/publish/; ./DungeonPlanner --urls http://*:$PORT
