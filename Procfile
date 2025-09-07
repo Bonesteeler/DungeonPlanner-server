@@ -1,2 +1,1 @@
-web: dotnet bin/Release/net9.0/publish/DungeonPlanner.dll --urls http://*:$PORT
-release: src/bin/publish/efbundle
+web: dotnet src/bin/Release/net9.0/publish/DungeonPlanner.dll --urls http://*:$PORT
