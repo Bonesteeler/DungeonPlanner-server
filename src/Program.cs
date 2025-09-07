@@ -6,6 +6,12 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+  Console.WriteLine($"Binding to port {port}");
+  builder.WebHost.UseUrls($"http://*:{port}");
+}
 builder.Services.AddRazorPages();
 
 // string? sceneConnectionTemplate = builder.Configuration.GetConnectionString("SceneContext");
