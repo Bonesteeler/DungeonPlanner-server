@@ -3,6 +3,7 @@ using DungeonPlanner.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
@@ -35,7 +36,10 @@ if (File.Exists(passwordSecretPath))
   var passwordSecret = File.ReadAllText(passwordSecretPath);
   var sceneConnectionString = string.Format(sceneConnectionTemplate!, passwordSecret);
   builder.Services.AddDbContext<SceneContext>(options =>
-      options.UseNpgsql(sceneConnectionString));
+  {
+      var match = Regex.Match(Environment.GetEnvironmentVariable("DATABASE_URL") ?? "", @"postgres://(.*):(.*)@(.*):(.*)/(.*)");
+      options.UseNpgsql($"Server={match.Groups[3]};Port={match.Groups[4]};User Id={match.Groups[1]};Password={match.Groups[2]};Database={match.Groups[5]};sslmode=Prefer;Trust Server Certificate=true");
+  });
 }
 else
 {
