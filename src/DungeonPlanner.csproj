@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
@@ -11,6 +11,6 @@
 
     <Target Name="PostPublishStep" AfterTargets="Publish">
       <Message Text="Publishing executable database migration bundle" Importance="High" />
-      <Exec Command="dotnet ef migrations bundle --output $(PublishDir)/efbundle --force"  />
+      <Exec Command="dotnet ef migrations bundle --output $(PublishDir)efbundle --force"  />
     </Target>
 </Project>
