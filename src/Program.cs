@@ -3,11 +3,12 @@ using DungeonPlanner.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 
-string? sceneConnectionTemplate = builder.Configuration.GetConnectionString("SceneContext");
+// string? sceneConnectionTemplate = builder.Configuration.GetConnectionString("SceneContext");
 var passwordSecretName = "db-password";
 var passwordSecretPath = $"/etc/secrets/{passwordSecretName}";
 Console.WriteLine("Sanity check");
@@ -29,18 +30,11 @@ else
 {
   Console.WriteLine($"Secrets directory not found at /run/secrets");
 }
-if (File.Exists(passwordSecretPath))
+builder.Services.AddDbContext<SceneContext>(options =>
 {
-  Console.WriteLine($"Found secret {passwordSecretName} at {passwordSecretPath}");
-  var passwordSecret = File.ReadAllText(passwordSecretPath);
-  var sceneConnectionString = string.Format(sceneConnectionTemplate!, passwordSecret);
-  builder.Services.AddDbContext<SceneContext>(options =>
-      options.UseNpgsql(sceneConnectionString));
-}
-else
-{
-  Console.WriteLine($"Secret {passwordSecretName} not found at {passwordSecretPath}");
-}
+    var match = Regex.Match(Environment.GetEnvironmentVariable("DATABASE_URL") ?? "", @"postgres://(.*):(.*)@(.*):(.*)/(.*)");
+    options.UseNpgsql($"Server={match.Groups[3]};Port={match.Groups[4]};User Id={match.Groups[1]};Password={match.Groups[2]};Database={match.Groups[5]};sslmode=Prefer;Trust Server Certificate=true");
+});
 
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
