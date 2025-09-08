@@ -14,32 +14,31 @@ if (!string.IsNullOrEmpty(port))
 }
 builder.Services.AddRazorPages();
 
-// string? sceneConnectionTemplate = builder.Configuration.GetConnectionString("SceneContext");
-var passwordSecretName = "db-password";
-var passwordSecretPath = $"/etc/secrets/{passwordSecretName}";
-Console.WriteLine("Sanity check");
-if (Directory.Exists("/etc/secrets"))
-{
-  Directory.GetFiles("/etc/secrets").ToList().ForEach(file =>
-      Console.WriteLine($"Found secret file at {file}"));
-  Console.WriteLine($"Found secrets directory at /etc/secrets");
-}
-else
-{
-  Console.WriteLine($"Secrets directory not found at /etc/secrets");
-}
-if (Directory.Exists("/run/secrets"))
-{
-  Console.WriteLine($"Found secrets directory at /run/secrets");
-}
-else
-{
-  Console.WriteLine($"Secrets directory not found at /run/secrets");
-}
 builder.Services.AddDbContext<SceneContext>(options =>
 {
+  var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+  if (string.IsNullOrEmpty(databaseUrl))
+  {
+    var passwordSecretPath = $"/run/secrets/db-password";
+    string? sceneConnectionTemplate = builder.Configuration.GetConnectionString("SceneContext");
+    if (File.Exists(passwordSecretPath) && sceneConnectionTemplate != null)
+    {
+      var passwordSecret = File.ReadAllText(passwordSecretPath);
+      var sceneConnectionString = string.Format(sceneConnectionTemplate, passwordSecret);
+      options.UseNpgsql(sceneConnectionString);
+    }
+    else
+    {
+      Console.WriteLine("Failed to find database configuration");
+      Console.WriteLine($"Password secret exists: {File.Exists(passwordSecretPath)}");
+      Console.WriteLine($"Scene connection string exists: {sceneConnectionTemplate != null}");
+    }
+  }
+  else
+  {
     var match = Regex.Match(Environment.GetEnvironmentVariable("DATABASE_URL") ?? "", @"postgres://(.*):(.*)@(.*):(.*)/(.*)");
     options.UseNpgsql($"Server={match.Groups[3]};Port={match.Groups[4]};User Id={match.Groups[1]};Password={match.Groups[2]};Database={match.Groups[5]};sslmode=Prefer;Trust Server Certificate=true");
+  }
 });
 
 var app = builder.Build();

@@ -22,20 +22,39 @@ namespace DungeonPlanner.Controllers
       return Ok("Hello World!");
     }
 
-    [HttpGet("list")]
-    public IActionResult ListScenes()
+    private class ListResponse
+    {
+      public int PageSize { get; set; } = LIST_LIMIT;
+      public int SceneCount { get; set; }
+      public List<Scene> Scenes { get; set; } = [];
+    }
+
+    [HttpGet("list/{start}")]
+    public IActionResult ListScenes(int start)
     {
       var context = _serviceProvider.GetService<SceneContext>();
       if (context == null)
       {
         return StatusCode(500, "Database context not available");
       }
+      var sceneCount = context.Scenes.Where(s => s.ModerationStatus == SceneModerationStatus.Approved).Count();
+      var startingScene = 0;
+      if (start > 0 && start < sceneCount)
+      {
+        startingScene = start;
+      }
       var scenesToGet =
         context.Scenes.OrderBy(s => s.ID)
-          .Take(LIST_LIMIT)
           .Where(s => s.ModerationStatus == SceneModerationStatus.Approved)
+          .Skip(startingScene)
+          .Take(LIST_LIMIT)
           .ToList();
-      return Ok(scenesToGet);
+      var response = new ListResponse
+      {
+        SceneCount = sceneCount,
+        Scenes = scenesToGet
+      };
+      return Ok(response);
     }
 
     [HttpGet("{id}")]
