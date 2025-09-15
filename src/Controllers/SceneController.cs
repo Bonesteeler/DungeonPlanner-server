@@ -1,3 +1,5 @@
+using System.Numerics;
+using System.Text.Json;
 using DungeonPlanner.Data;
 using DungeonPlanner.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -26,7 +28,23 @@ namespace DungeonPlanner.Controllers
     {
       public int PageSize { get; set; } = LIST_LIMIT;
       public int SceneCount { get; set; }
-      public List<Scene> Scenes { get; set; } = [];
+      public List<ListResponseScene> Scenes { get; set; } = [];
+    }
+
+    private class ListResponseScene
+    {
+      public Guid ID { get; set; }
+      public string Name { get; set; } = "default";
+      public string Author { get; set; } = "";
+      public List<ListResponseTile> Tiles { get; set; } = [];
+    }
+
+    private class ListResponseTile
+    {
+      public string ID { get; set; } = "";
+      public string Rotation { get; set; } = "";
+      public int XPos { get; set; }
+      public int YPos { get; set; }
     }
 
     [HttpGet("list/{start}")]
@@ -43,16 +61,43 @@ namespace DungeonPlanner.Controllers
       {
         startingScene = start;
       }
-      var scenesToGet =
+      var scenesToGet = 
         context.Scenes.OrderBy(s => s.ID)
           .Where(s => s.ModerationStatus == SceneModerationStatus.Approved)
           .Skip(startingScene)
           .Take(LIST_LIMIT)
           .ToList();
+
+      var responseScenes = new List<ListResponseScene>();
+      foreach (var scene in scenesToGet)
+      {
+        var responseScene = new ListResponseScene
+        {
+          ID = scene.ID,
+          Name = scene.Name,
+          Author = scene.Author,
+          Tiles = []
+        };
+        var tiles = context.Tiles.Where(t => t.SceneID == scene.ID).ToList();
+        foreach (var tile in tiles)
+        {
+          var rotation = new Vector3(0, tile.Rotation, 0);
+          var responseTile = new ListResponseTile
+          {
+            ID = tile.TileID,
+            Rotation = string.Format("(0.0, {0:0.0}, 0.0)", tile.Rotation),
+            XPos = tile.XPos,
+            YPos = tile.YPos
+          };
+          responseScene.Tiles.Add(responseTile);
+        }
+        responseScenes.Add(responseScene);
+      }
+
       var response = new ListResponse
       {
         SceneCount = sceneCount,
-        Scenes = scenesToGet
+        Scenes = responseScenes
       };
       return Ok(response);
     }
