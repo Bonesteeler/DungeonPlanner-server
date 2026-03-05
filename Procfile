@@ -1,1 +1,0 @@
-web: dotnet src/bin/Release/net9.0/publish/DungeonPlanner.dll --urls http://*:$PORT
