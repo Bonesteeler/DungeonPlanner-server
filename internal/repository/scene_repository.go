@@ -1,14 +1,15 @@
 package repository
 
 import (
-    "database/sql"
-    "os"
-    "strings"
+	"database/sql"
+	"os"
+	"strings"
 
-    "github.com/google/uuid"
+	"github.com/google/uuid"
 
-    "DungeonPlannerServer/internal/db"
-    "DungeonPlannerServer/internal/db/tables"
+	"DungeonPlannerServer/internal/db"
+	"DungeonPlannerServer/internal/db/tables"
+	"DungeonPlannerServer/internal/handler/dto"
 )
 
 type SceneRepository struct {
@@ -31,20 +32,20 @@ func (r *SceneRepository) GetApprovedSceneCount() (int, error) {
     return tables.GetApprovedSceneCount(r.db)
 }
 
-func (r *SceneRepository) ListApprovedScenes(offset int) ([]tables.Scene, error) {
+func (r *SceneRepository) ListApprovedScenes(offset int) ([]dto.SceneResponse, error) {
     return tables.ListApprovedScenes(r.db, offset, 20)
 }
 
-func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*tables.Scene, error) {
+func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*dto.SceneResponse, error) {
     scene, err := tables.GetSceneByID(r.db, id)
     if err != nil || scene == nil {
         return nil, err
     }
-    tiles, err := tables.GetTilesBySceneID(r.db, id)
+    layers, err := tables.GetLayersBySceneID(r.db, id)
     if err != nil {
         return nil, err
     }
-    scene.Tiles = tiles
+    scene.Layers = layers
     return scene, nil
 }
 
@@ -57,9 +58,14 @@ func (r *SceneRepository) AddScene(scene tables.Scene) error {
     if err = tables.InsertScene(tx, scene); err != nil {
         return err
     }
-    if err = tables.InsertTiles(tx, scene.Tiles); err != nil {
+    if err = tables.InsertLayers(tx, scene.Layers); err != nil {
         return err
     }
+		for _, layer := range scene.Layers {
+			if err = tables.InsertTiles(tx, layer.ID, layer.Tiles); err != nil {
+				return err
+			}
+		}
     return tx.Commit()
 }
 

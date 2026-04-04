@@ -7,12 +7,6 @@ type TileRequest struct {
 	YPos     int
 }
 
-type AddSceneRequest struct {
-	Name   string
-	Author string
-	Tiles  []TileRequest
-}
-
 type TileResponse struct {
 	TileID   string
 	Rotation int
@@ -20,12 +14,28 @@ type TileResponse struct {
 	YPos     int
 }
 
+type LayerRequest struct {
+	Height int
+	Tiles []TileRequest
+}
+
+type LayerResponse struct {
+	Height int
+	Tiles []TileResponse
+}
+
+type AddSceneRequest struct {
+	Name   string
+	Author string
+	Layers []LayerRequest
+}
+
 type SceneResponse struct {
 	ID            string
 	Name          string
 	Author        string
 	UniqueTileIDs []string
-	Tiles         []TileResponse
+	Layers        []LayerResponse
 }
 
 type SceneStatsResponse struct {

@@ -8,7 +8,7 @@ import (
 )
 
 type SceneRepo interface {
-    ListApprovedScenes(offset int) ([]tables.Scene, error)
+    ListApprovedScenes(offset int) ([]dto.AddSceneRequest, error)
     GetSceneByID(id uuid.UUID) (*tables.Scene, error)
     AddScene(scene tables.Scene) error
 }
@@ -32,13 +32,13 @@ func (s *SceneService) ListScenes(offset int) []dto.SceneResponse {
     }
     var response []dto.SceneResponse
     for _, scene := range scenes {
-        var tiles []dto.TileResponse
+        var layers []dto.LayerResponse
         response = append(response, dto.SceneResponse{
             ID:            scene.ID.String(),
             Name:          *scene.Name,
             Author:        *scene.Author,
             UniqueTileIDs: scene.UniqueTileIDs,
-            Tiles:         tiles,
+            Layers:        layers,
         })
     }
     return response
@@ -55,15 +55,22 @@ func (s *SceneService) GetSceneByID(id uuid.UUID) *dto.SceneResponse {
         Author:        *scene.Author,
         UniqueTileIDs: scene.UniqueTileIDs,
     }
-    for _, tile := range scene.Tiles {
-        response.Tiles = append(response.Tiles, dto.TileResponse{
+    for _, layer := range scene.Layers {
+				tiles := make([]dto.TileResponse, 0)
+				for _, tile := range layer.Tiles {
+					tiles = append(tiles, dto.TileResponse{
             TileID:   *tile.TileId,
             Rotation: tile.Rotation,
             XPos:     tile.XPos,
             YPos:     tile.YPos,
         })
     }
-    return &response
+    response.Layers = append(response.Layers, dto.LayerResponse{
+        Height: layer.Height,
+        Tiles:  tiles,
+    })
+}
+return &response
 }
 
 func (s *SceneService) AddScene(request dto.AddSceneRequest) {
