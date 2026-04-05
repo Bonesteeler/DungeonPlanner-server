@@ -1,18 +1,20 @@
 package repository
 
 import (
-    "errors"
-    "testing"
+	"errors"
+	"testing"
 
-    "github.com/DATA-DOG/go-sqlmock"
-    "github.com/google/uuid"
-    "github.com/lib/pq"
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
+	"github.com/lib/pq"
 
-    "DungeonPlannerServer/internal/db/tables"
+	"DungeonPlannerServer/internal/db/tables"
+	"DungeonPlannerServer/internal/handler/dto"
 )
 
 var sceneColumns = []string{"ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus"}
-var tileColumns = []string{"TileId", "Rotation", "XPos", "YPos", "SceneId"}
+var layerColumns = []string{"ID", "SceneId"}
+var tileColumns = []string{"TileId", "Rotation", "XPos", "YPos", "LayerId"}
 
 func getRepositoryWithMockDB(t *testing.T) (*SceneRepository, sqlmock.Sqlmock) {
     t.Helper()
@@ -97,21 +99,18 @@ func TestListApprovedScenes_ReturnsScenes(t *testing.T) {
     if len(scenes) != 1 {
         t.Fatalf("expected 1 scene, got %d", len(scenes))
     }
-    if scenes[0].ID != id {
-        t.Errorf("expected ID %v, got %v", id, scenes[0].ID)
+    if scenes[0].ID != id.String() {
+        t.Errorf("expected ID %v, got %v", id.String(), scenes[0].ID)
     }
-		if scenes[0].Name == nil || *scenes[0].Name != "Test Scene" {
-				t.Errorf("expected Name 'Test Scene', got '%v'", scenes[0].Name)
-		}
-		if scenes[0].Author == nil || *scenes[0].Author != "Author" {
-				t.Errorf("expected Author 'Author', got '%v'", scenes[0].Author)
-		}
-		if len(scenes[0].UniqueTileIDs) != 2 || scenes[0].UniqueTileIDs[0] != "tile1" || scenes[0].UniqueTileIDs[1] != "tile2" {
-				t.Errorf("expected UniqueTileIDs ['tile1','tile2'], got %v", scenes[0].UniqueTileIDs)
-		}
-		if scenes[0].ModerationStatus != tables.ModerationStatusApproved {
-				t.Errorf("expected ModerationStatus %v, got %v", tables.ModerationStatusApproved, scenes[0].ModerationStatus)
-		}
+    if scenes[0].Name != "Test Scene" {
+        t.Errorf("expected Name 'Test Scene', got '%v'", scenes[0].Name)
+    }
+    if scenes[0].Author != "Author" {
+        t.Errorf("expected Author 'Author', got '%v'", scenes[0].Author)
+    }
+    if len(scenes[0].UniqueTileIDs) != 2 || scenes[0].UniqueTileIDs[0] != "tile1" || scenes[0].UniqueTileIDs[1] != "tile2" {
+        t.Errorf("expected UniqueTileIDs ['tile1','tile2'], got %v", scenes[0].UniqueTileIDs)
+    }
     if err := mock.ExpectationsWereMet(); err != nil {
         t.Error(err)
     }
@@ -171,40 +170,50 @@ func TestListApprovedScenes_DBError(t *testing.T) {
 // ---- GetSceneByID ----
 
 const getSceneByIDQuery = `SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes" WHERE "ID" = $1`
-const getTilesBySceneIDQuery = `SELECT "TileId", "Rotation", "XPos", "YPos", "SceneId" FROM public."Tiles" WHERE "SceneId" = $1`
+const getLayersBySceneIDQuery = `SELECT "ID", "SceneId" FROM public."Layers" WHERE "SceneId" = $1`
+const getTilesByLayerIDQuery = `SELECT "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" = $1`
 
 func TestGetSceneByID_Found(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
-    id := uuid.New()
+    sceneID := uuid.New()
+    layerID := uuid.New()
     tileID := "tile-a"
 
     mock.ExpectQuery(getSceneByIDQuery).
-        WithArgs(id).
+        WithArgs(sceneID).
         WillReturnRows(sqlmock.NewRows(sceneColumns).
-            AddRow(id, strPtr("My Scene"), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), tables.ModerationStatusApproved))
+            AddRow(sceneID, strPtr("My Scene"), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), tables.ModerationStatusApproved))
 
-    mock.ExpectQuery(getTilesBySceneIDQuery).
-        WithArgs(id).
+    mock.ExpectQuery(getLayersBySceneIDQuery).
+        WithArgs(sceneID).
+        WillReturnRows(sqlmock.NewRows(layerColumns).
+            AddRow(layerID, sceneID))
+
+    mock.ExpectQuery(getTilesByLayerIDQuery).
+        WithArgs(layerID).
         WillReturnRows(sqlmock.NewRows(tileColumns).
-            AddRow(strPtr(tileID), 0, 1, 2, id))
+            AddRow(strPtr(tileID), 0, 1, 2, layerID))
 
-    scene, err := repo.GetSceneByID(id)
+    scene, err := repo.GetSceneByID(sceneID)
     if err != nil {
         t.Fatalf("unexpected error: %v", err)
     }
     if scene == nil {
         t.Fatal("expected scene, got nil")
     }
-    if scene.ID != id {
-        t.Errorf("expected ID %v, got %v", id, scene.ID)
+    if scene.ID != sceneID.String() {
+        t.Errorf("expected ID %v, got %v", sceneID.String(), scene.ID)
     }
-    if len(scene.Tiles) != 1 {
-        t.Errorf("expected 1 tile, got %d", len(scene.Tiles))
+    if len(scene.Layers) != 1 {
+        t.Fatalf("expected 1 layer, got %d", len(scene.Layers))
     }
-		if scene.Tiles[0].XPos != 1 || scene.Tiles[0].YPos != 2 {
-				t.Errorf("expected tile position (1,2), got (%d,%d)", scene.Tiles[0].XPos, scene.Tiles[0].YPos)
-		}
+    if len(scene.Layers[0].Tiles) != 1 {
+        t.Errorf("expected 1 tile, got %d", len(scene.Layers[0].Tiles))
+    }
+    if scene.Layers[0].Tiles[0].XPos != 1 || scene.Layers[0].Tiles[0].YPos != 2 {
+        t.Errorf("expected tile position (1,2), got (%d,%d)", scene.Layers[0].Tiles[0].XPos, scene.Layers[0].Tiles[0].YPos)
+    }
     if err := mock.ExpectationsWereMet(); err != nil {
         t.Error(err)
     }
@@ -230,30 +239,30 @@ func TestGetSceneByID_NotFound(t *testing.T) {
     }
 }
 
-func TestGetSceneByID_TilesNotFound(t *testing.T) {
-		repo, mock := getRepositoryWithMockDB(t)
-		id := uuid.New()
-		mock.ExpectQuery(getSceneByIDQuery).
-				WithArgs(id).
-				WillReturnRows(sqlmock.NewRows(sceneColumns).
-						AddRow(id, strPtr("Scene With No Tiles"), strPtr("Author"), pqArrayValue(t, []string{}), tables.ModerationStatusApproved))
-		mock.ExpectQuery(getTilesBySceneIDQuery).
-				WithArgs(id).
-				WillReturnRows(sqlmock.NewRows(tileColumns))
+func TestGetSceneByID_NoLayers(t *testing.T) {
+    repo, mock := getRepositoryWithMockDB(t)
+    id := uuid.New()
+    mock.ExpectQuery(getSceneByIDQuery).
+        WithArgs(id).
+        WillReturnRows(sqlmock.NewRows(sceneColumns).
+            AddRow(id, strPtr("Scene With No Layers"), strPtr("Author"), pqArrayValue(t, []string{}), tables.ModerationStatusApproved))
+    mock.ExpectQuery(getLayersBySceneIDQuery).
+        WithArgs(id).
+        WillReturnRows(sqlmock.NewRows(layerColumns))
 
-		scene, err := repo.GetSceneByID(id)
-		if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-		}
-		if scene == nil {
-				t.Fatal("expected scene, got nil")
-		}
-		if len(scene.Tiles) != 0 {
-				t.Errorf("expected 0 tiles, got %d", len(scene.Tiles))
-		}
-		if err := mock.ExpectationsWereMet(); err != nil {
-				t.Error(err)
-		}
+    scene, err := repo.GetSceneByID(id)
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+    if scene == nil {
+        t.Fatal("expected scene, got nil")
+    }
+    if len(scene.Layers) != 0 {
+        t.Errorf("expected 0 layers, got %d", len(scene.Layers))
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Error(err)
+    }
 }
 
 func TestGetSceneByID_SceneQueryError(t *testing.T) {
@@ -273,7 +282,7 @@ func TestGetSceneByID_SceneQueryError(t *testing.T) {
     }
 }
 
-func TestGetSceneByID_TilesQueryError(t *testing.T) {
+func TestGetSceneByID_LayersQueryError(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
     id := uuid.New()
 
@@ -282,9 +291,9 @@ func TestGetSceneByID_TilesQueryError(t *testing.T) {
         WillReturnRows(sqlmock.NewRows(sceneColumns).
             AddRow(id, strPtr("Scene"), strPtr("Author"), pqArrayValue(t, []string{}), tables.ModerationStatusApproved))
 
-    mock.ExpectQuery(getTilesBySceneIDQuery).
+    mock.ExpectQuery(getLayersBySceneIDQuery).
         WithArgs(id).
-        WillReturnError(errors.New("tiles db error"))
+        WillReturnError(errors.New("layers db error"))
 
     _, err := repo.GetSceneByID(id)
     if err == nil {
@@ -298,36 +307,38 @@ func TestGetSceneByID_TilesQueryError(t *testing.T) {
 // ---- AddScene ----
 
 const insertSceneQuery = `INSERT INTO public."Scenes" ("ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus") VALUES ($1, $2, $3, $4, $5)`
-const insertTileQuery = `INSERT INTO public."Tiles" ("TileId", "Rotation", "XPos", "YPos", "SceneId") VALUES ($1, $2, $3, $4, $5)`
+const insertLayerQuery = `INSERT INTO public."Layers" ("ID", "SceneId") VALUES ($1, $2)`
+const insertTileQuery = `INSERT INTO public."Tiles" ("TileId", "Rotation", "XPos", "YPos", "LayerId") VALUES ($1, $2, $3, $4, $5)`
 
 func TestAddScene_Success(t *testing.T) {
-			repo, mock := getRepositoryWithMockDB(t)
+    repo, mock := getRepositoryWithMockDB(t)
 
-    id := uuid.New()
-    tileID := "tile-1"
-    scene := tables.Scene{
-        ID:               id,
-        Name:             strPtr("New Scene"),
-        Author:           strPtr("Author"),
-        UniqueTileIDs:    []string{"tile-1"},
-        ModerationStatus: tables.ModerationStatusPending,
-        Tiles: []tables.Tile{
-            {TileId: &tileID, Rotation: 90, XPos: 3, YPos: 5, SceneId: id},
+    request := dto.AddSceneRequest{
+        Name:   "New Scene",
+        Author: "Author",
+        Layers: []dto.LayerRequest{
+            {Tiles: []dto.TileRequest{
+                {TileID: "tile-1", Rotation: 90, XPos: 3, YPos: 5},
+            }},
         },
     }
 
     mock.ExpectBegin()
     mock.ExpectPrepare(insertSceneQuery).
         ExpectExec().
-        WithArgs(id, "New Scene", "Author", pqArrayValue(t, []string{"tile-1"}), tables.ModerationStatusPending).
+        WithArgs(sqlmock.AnyArg(), "New Scene", "Author", sqlmock.AnyArg(), tables.ModerationStatusPending).
+        WillReturnResult(sqlmock.NewResult(1, 1))
+    mock.ExpectPrepare(insertLayerQuery).
+        ExpectExec().
+        WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
         WillReturnResult(sqlmock.NewResult(1, 1))
     mock.ExpectPrepare(insertTileQuery).
         ExpectExec().
-        WithArgs("tile-1", 90, 3, 5, id).
+        WithArgs("tile-1", 90, 3, 5, sqlmock.AnyArg()).
         WillReturnResult(sqlmock.NewResult(1, 1))
     mock.ExpectCommit()
 
-    if err := repo.AddScene(scene); err != nil {
+    if err := repo.AddScene(request); err != nil {
         t.Fatalf("unexpected error: %v", err)
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -335,17 +346,13 @@ func TestAddScene_Success(t *testing.T) {
     }
 }
 
-func TestAddScene_NoTiles_SkipsTileInsert(t *testing.T) {
+func TestAddScene_NoLayers_SkipsLayerAndTileInsert(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
-    id := uuid.New()
-    scene := tables.Scene{
-        ID:               id,
-        Name:             strPtr("Scene No Tiles"),
-        Author:           strPtr("Author"),
-        UniqueTileIDs:    []string{},
-        ModerationStatus: tables.ModerationStatusPending,
-        Tiles:            []tables.Tile{},
+    request := dto.AddSceneRequest{
+        Name:   "Scene No Layers",
+        Author: "Author",
+        Layers: []dto.LayerRequest{},
     }
 
     mock.ExpectBegin()
@@ -353,10 +360,11 @@ func TestAddScene_NoTiles_SkipsTileInsert(t *testing.T) {
         ExpectExec().
         WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
         WillReturnResult(sqlmock.NewResult(1, 1))
-    // No tile prepare/exec expected since Tiles is empty.
+    mock.ExpectPrepare(insertLayerQuery) // prepared but no exec since Layers is empty
+    // No tile prepare/exec expected since Layers is empty.
     mock.ExpectCommit()
 
-    if err := repo.AddScene(scene); err != nil {
+    if err := repo.AddScene(request); err != nil {
         t.Fatalf("unexpected error: %v", err)
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -369,8 +377,7 @@ func TestAddScene_BeginError(t *testing.T) {
 
     mock.ExpectBegin().WillReturnError(errors.New("begin failed"))
 
-    scene := tables.Scene{ID: uuid.New(), Name: strPtr("S"), Author: strPtr("A")}
-    if err := repo.AddScene(scene); err == nil {
+    if err := repo.AddScene(dto.AddSceneRequest{Name: "S", Author: "A"}); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -381,17 +388,13 @@ func TestAddScene_BeginError(t *testing.T) {
 func TestAddScene_InsertSceneError_RollsBack(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
-    scene := tables.Scene{
-        ID: uuid.New(), Name: strPtr("S"), Author: strPtr("A"), Tiles: []tables.Tile{},
-    }
-
     mock.ExpectBegin()
     mock.ExpectPrepare(insertSceneQuery).
         ExpectExec().
         WillReturnError(errors.New("insert scene failed"))
     mock.ExpectRollback()
 
-    if err := repo.AddScene(scene); err == nil {
+    if err := repo.AddScene(dto.AddSceneRequest{Name: "S", Author: "A", Layers: []dto.LayerRequest{}}); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -402,17 +405,19 @@ func TestAddScene_InsertSceneError_RollsBack(t *testing.T) {
 func TestAddScene_InsertTilesError_RollsBack(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
-    id := uuid.New()
-    tileID := "tile-1"
-    scene := tables.Scene{
-        ID:     id,
-        Name:   strPtr("S"),
-        Author: strPtr("A"),
-        Tiles:  []tables.Tile{{TileId: &tileID, SceneId: id}},
+    request := dto.AddSceneRequest{
+        Name:   "S",
+        Author: "A",
+        Layers: []dto.LayerRequest{
+            {Tiles: []dto.TileRequest{{TileID: "tile-1"}}},
+        },
     }
 
     mock.ExpectBegin()
     mock.ExpectPrepare(insertSceneQuery).
+        ExpectExec().
+        WillReturnResult(sqlmock.NewResult(1, 1))
+    mock.ExpectPrepare(insertLayerQuery).
         ExpectExec().
         WillReturnResult(sqlmock.NewResult(1, 1))
     mock.ExpectPrepare(insertTileQuery).
@@ -420,7 +425,7 @@ func TestAddScene_InsertTilesError_RollsBack(t *testing.T) {
         WillReturnError(errors.New("insert tile failed"))
     mock.ExpectRollback()
 
-    if err := repo.AddScene(scene); err == nil {
+    if err := repo.AddScene(request); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {

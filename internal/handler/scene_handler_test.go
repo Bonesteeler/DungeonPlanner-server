@@ -190,7 +190,7 @@ func TestAddScene_ForwardsRequestToService(t *testing.T) {
     req := dto.AddSceneRequest{
         Name:   "Fortress",
         Author: "Eve",
-        Tiles:  []dto.TileRequest{{TileID: "t1", Rotation: 90, XPos: 1, YPos: 2}},
+        Layers: []dto.LayerRequest{{Tiles: []dto.TileRequest{{TileID: "t1", Rotation: 90, XPos: 1, YPos: 2}}}},
     }
     c, _ := newEchoContext(http.MethodPost, "/scenes/add")
     h.AddScene(c, req)
@@ -198,7 +198,7 @@ func TestAddScene_ForwardsRequestToService(t *testing.T) {
     if captured.Name != "Fortress" || captured.Author != "Eve" {
         t.Errorf("captured request = %+v, want Name=Fortress Author=Eve", captured)
     }
-    if len(captured.Tiles) != 1 || captured.Tiles[0].TileID != "t1" {
-        t.Errorf("captured tiles = %+v, want 1 tile with TileID=t1", captured.Tiles)
+    if len(captured.Layers) != 1 || len(captured.Layers[0].Tiles) != 1 || captured.Layers[0].Tiles[0].TileID != "t1" {
+        t.Errorf("captured layers = %+v, want 1 layer with 1 tile TileID=t1", captured.Layers)
     }
 }

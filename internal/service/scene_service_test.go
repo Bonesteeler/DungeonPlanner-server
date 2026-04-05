@@ -1,33 +1,32 @@
 package service
 
 import (
-    "errors"
-    "testing"
+	"errors"
+	"testing"
 
-    "github.com/google/uuid"
+	"github.com/google/uuid"
 
-    "DungeonPlannerServer/internal/db/tables"
-    "DungeonPlannerServer/internal/handler/dto"
+	"DungeonPlannerServer/internal/handler/dto"
 )
 
 // --- Mock ---
 
 type mockSceneRepo struct {
-    listApprovedScenesFn func(offset int) ([]tables.Scene, error)
-    getSceneByIDFn       func(id uuid.UUID) (*tables.Scene, error)
-    addSceneFn           func(scene tables.Scene) error
+    listApprovedScenesFn func(offset int) ([]dto.SceneResponse, error)
+    getSceneByIDFn       func(id uuid.UUID) (*dto.SceneResponse, error)
+    addSceneFn           func(request dto.AddSceneRequest) error
 }
 
-func (m *mockSceneRepo) ListApprovedScenes(offset int) ([]tables.Scene, error) {
+func (m *mockSceneRepo) ListApprovedScenes(offset int) ([]dto.SceneResponse, error) {
     return m.listApprovedScenesFn(offset)
 }
 
-func (m *mockSceneRepo) GetSceneByID(id uuid.UUID) (*tables.Scene, error) {
+func (m *mockSceneRepo) GetSceneByID(id uuid.UUID) (*dto.SceneResponse, error) {
     return m.getSceneByIDFn(id)
 }
 
-func (m *mockSceneRepo) AddScene(scene tables.Scene) error {
-    return m.addSceneFn(scene)
+func (m *mockSceneRepo) AddScene(request dto.AddSceneRequest) error {
+    return m.addSceneFn(request)
 }
 
 // --- Helpers ---
@@ -49,10 +48,10 @@ func TestListScenes_Success(t *testing.T) {
     id1 := uuid.New()
     id2 := uuid.New()
     mock := &mockSceneRepo{
-        listApprovedScenesFn: func(offset int) ([]tables.Scene, error) {
-            return []tables.Scene{
-                {ID: id1, Name: strPtr("Dungeon A"), Author: strPtr("Alice"), UniqueTileIDs: []string{"t1", "t2"}},
-                {ID: id2, Name: strPtr("Dungeon B"), Author: strPtr("Bob"), UniqueTileIDs: []string{"t3"}},
+        listApprovedScenesFn: func(offset int) ([]dto.SceneResponse, error) {
+            return []dto.SceneResponse{
+                {ID: id1.String(), Name: "Dungeon A", Author: "Alice", UniqueTileIDs: []string{"t1", "t2"}},
+                {ID: id2.String(), Name: "Dungeon B", Author: "Bob", UniqueTileIDs: []string{"t3"}},
             }, nil
         },
     }
@@ -82,7 +81,7 @@ func TestListScenes_Success(t *testing.T) {
 
 func TestListScenes_RepoError_ReturnsEmpty(t *testing.T) {
     mock := &mockSceneRepo{
-        listApprovedScenesFn: func(offset int) ([]tables.Scene, error) {
+        listApprovedScenesFn: func(offset int) ([]dto.SceneResponse, error) {
             return nil, errors.New("db error")
         },
     }
@@ -97,8 +96,8 @@ func TestListScenes_RepoError_ReturnsEmpty(t *testing.T) {
 
 func TestListScenes_EmptyResult(t *testing.T) {
     mock := &mockSceneRepo{
-        listApprovedScenesFn: func(offset int) ([]tables.Scene, error) {
-            return []tables.Scene{}, nil
+        listApprovedScenesFn: func(offset int) ([]dto.SceneResponse, error) {
+            return []dto.SceneResponse{}, nil
         },
     }
     sceneService := NewSceneService(mock)
@@ -115,15 +114,17 @@ func TestListScenes_EmptyResult(t *testing.T) {
 func TestGetSceneByID_Success_WithTiles(t *testing.T) {
     sceneID := uuid.New()
     mock := &mockSceneRepo{
-        getSceneByIDFn: func(id uuid.UUID) (*tables.Scene, error) {
-            return &tables.Scene{
-                ID:            sceneID,
-                Name:          strPtr("Cave"),
-                Author:        strPtr("Charlie"),
+        getSceneByIDFn: func(id uuid.UUID) (*dto.SceneResponse, error) {
+            return &dto.SceneResponse{
+                ID:            sceneID.String(),
+                Name:          "Cave",
+                Author:        "Charlie",
                 UniqueTileIDs: []string{"t1", "t2"},
-                Tiles: []tables.Tile{
-                    {TileId: strPtr("t1"), Rotation: 90, XPos: 1, YPos: 2},
-                    {TileId: strPtr("t2"), Rotation: 0, XPos: 3, YPos: 4},
+                Layers: []dto.LayerResponse{
+                    {Tiles: []dto.TileResponse{
+                        {TileID: "t1", Rotation: 90, XPos: 1, YPos: 2},
+                        {TileID: "t2", Rotation: 0, XPos: 3, YPos: 4},
+                    }},
                 },
             }, nil
         },
@@ -144,27 +145,31 @@ func TestGetSceneByID_Success_WithTiles(t *testing.T) {
     if result.Author != "Charlie" {
         t.Errorf("Author = %s, want Charlie", result.Author)
     }
-    if len(result.Tiles) != 2 {
-        t.Fatalf("expected 2 tiles, got %d", len(result.Tiles))
+    if len(result.Layers) != 1 {
+        t.Fatalf("expected 1 layer, got %d", len(result.Layers))
     }
-    if result.Tiles[0].TileID != "t1" || result.Tiles[0].Rotation != 90 || result.Tiles[0].XPos != 1 || result.Tiles[0].YPos != 2 {
-        t.Errorf("tile[0] mismatch: %+v", result.Tiles[0])
+    tiles := result.Layers[0].Tiles
+    if len(tiles) != 2 {
+        t.Fatalf("expected 2 tiles, got %d", len(tiles))
     }
-    if result.Tiles[1].TileID != "t2" || result.Tiles[1].Rotation != 0 || result.Tiles[1].XPos != 3 || result.Tiles[1].YPos != 4 {
-        t.Errorf("tile[1] mismatch: %+v", result.Tiles[1])
+    if tiles[0].TileID != "t1" || tiles[0].Rotation != 90 || tiles[0].XPos != 1 || tiles[0].YPos != 2 {
+        t.Errorf("tile[0] mismatch: %+v", tiles[0])
+    }
+    if tiles[1].TileID != "t2" || tiles[1].Rotation != 0 || tiles[1].XPos != 3 || tiles[1].YPos != 4 {
+        t.Errorf("tile[1] mismatch: %+v", tiles[1])
     }
 }
 
 func TestGetSceneByID_Success_NoTiles(t *testing.T) {
     sceneID := uuid.New()
     mock := &mockSceneRepo{
-        getSceneByIDFn: func(id uuid.UUID) (*tables.Scene, error) {
-            return &tables.Scene{
-                ID:            sceneID,
-                Name:          strPtr("Empty Room"),
-                Author:        strPtr("Dave"),
+        getSceneByIDFn: func(id uuid.UUID) (*dto.SceneResponse, error) {
+            return &dto.SceneResponse{
+                ID:            sceneID.String(),
+                Name:          "Empty Room",
+                Author:        "Dave",
                 UniqueTileIDs: []string{},
-                Tiles:         []tables.Tile{},
+                Layers:        []dto.LayerResponse{},
             }, nil
         },
     }
@@ -175,14 +180,14 @@ func TestGetSceneByID_Success_NoTiles(t *testing.T) {
     if result == nil {
         t.Fatal("expected non-nil result")
     }
-    if len(result.Tiles) != 0 {
-        t.Errorf("expected 0 tiles, got %d", len(result.Tiles))
+    if len(result.Layers) != 0 {
+        t.Errorf("expected 0 layers, got %d", len(result.Layers))
     }
 }
 
 func TestGetSceneByID_RepoError_ReturnsNil(t *testing.T) {
     mock := &mockSceneRepo{
-        getSceneByIDFn: func(id uuid.UUID) (*tables.Scene, error) {
+        getSceneByIDFn: func(id uuid.UUID) (*dto.SceneResponse, error) {
             return nil, errors.New("not found")
         },
     }
@@ -197,7 +202,7 @@ func TestGetSceneByID_RepoError_ReturnsNil(t *testing.T) {
 
 func TestGetSceneByID_NilScene_ReturnsNil(t *testing.T) {
     mock := &mockSceneRepo{
-        getSceneByIDFn: func(id uuid.UUID) (*tables.Scene, error) {
+        getSceneByIDFn: func(id uuid.UUID) (*dto.SceneResponse, error) {
             return nil, nil
         },
     }
@@ -213,10 +218,10 @@ func TestGetSceneByID_NilScene_ReturnsNil(t *testing.T) {
 // --- AddScene ---
 
 func TestAddScene_Success(t *testing.T) {
-    var captured tables.Scene
+    var captured dto.AddSceneRequest
     mock := &mockSceneRepo{
-        addSceneFn: func(scene tables.Scene) error {
-            captured = scene
+        addSceneFn: func(request dto.AddSceneRequest) error {
+            captured = request
             return nil
         },
     }
@@ -225,32 +230,28 @@ func TestAddScene_Success(t *testing.T) {
     request := dto.AddSceneRequest{
         Name:   "Forest",
         Author: "Eve",
-        Tiles: []dto.TileRequest{
-            {TileID: "t1", Rotation: 0, XPos: 0, YPos: 0},
-            {TileID: "t2", Rotation: 180, XPos: 1, YPos: 1},
-            {TileID: "t1", Rotation: 90, XPos: 2, YPos: 2}, // duplicate tile ID
+        Layers: []dto.LayerRequest{
+            {Tiles: []dto.TileRequest{
+                {TileID: "t1", Rotation: 0, XPos: 0, YPos: 0},
+                {TileID: "t2", Rotation: 180, XPos: 1, YPos: 1},
+                {TileID: "t1", Rotation: 90, XPos: 2, YPos: 2},
+            }},
         },
     }
 
     sceneService.AddScene(request)
 
-    if *captured.Name != "Forest" {
-        t.Errorf("Name = %s, want Forest", *captured.Name)
+    if captured.Name != "Forest" {
+        t.Errorf("Name = %s, want Forest", captured.Name)
     }
-    if *captured.Author != "Eve" {
-        t.Errorf("Author = %s, want Eve", *captured.Author)
-    }
-    if len(captured.UniqueTileIDs) != 2 {
-        t.Errorf("UniqueTileIDs len = %d, want 2", len(captured.UniqueTileIDs))
-    }
-    if len(captured.Tiles) != 3 {
-        t.Errorf("Tiles len = %d, want 3", len(captured.Tiles))
+    if captured.Author != "Eve" {
+        t.Errorf("Author = %s, want Eve", captured.Author)
     }
 }
 
 func TestAddScene_RepoError_DoesNotPanic(t *testing.T) {
     mock := &mockSceneRepo{
-        addSceneFn: func(scene tables.Scene) error {
+        addSceneFn: func(request dto.AddSceneRequest) error {
             return errors.New("db write failed")
         },
     }
@@ -259,56 +260,31 @@ func TestAddScene_RepoError_DoesNotPanic(t *testing.T) {
     request := dto.AddSceneRequest{
         Name:   "Broken",
         Author: "Frank",
-        Tiles:  []dto.TileRequest{{TileID: "t1", Rotation: 0, XPos: 0, YPos: 0}},
+        Layers: []dto.LayerRequest{
+            {Tiles: []dto.TileRequest{{TileID: "t1", Rotation: 0, XPos: 0, YPos: 0}}},
+        },
     }
 
     sceneService.AddScene(request) // should not panic
 }
 
-func TestAddScene_EmptyTiles(t *testing.T) {
-    var captured tables.Scene
+func TestAddScene_EmptyLayers(t *testing.T) {
+    var captured dto.AddSceneRequest
     mock := &mockSceneRepo{
-        addSceneFn: func(scene tables.Scene) error {
-            captured = scene
+        addSceneFn: func(request dto.AddSceneRequest) error {
+            captured = request
             return nil
         },
     }
     sceneService := NewSceneService(mock)
 
-    sceneService.AddScene(dto.AddSceneRequest{Name: "Empty", Author: "Grace", Tiles: []dto.TileRequest{}})
+    sceneService.AddScene(dto.AddSceneRequest{Name: "Empty", Author: "Grace", Layers: []dto.LayerRequest{}})
 
-    if len(captured.UniqueTileIDs) != 0 {
-        t.Errorf("UniqueTileIDs len = %d, want 0", len(captured.UniqueTileIDs))
+    if captured.Name != "Empty" {
+        t.Errorf("Name = %s, want Empty", captured.Name)
     }
-    if len(captured.Tiles) != 0 {
-        t.Errorf("Tiles len = %d, want 0", len(captured.Tiles))
+    if len(captured.Layers) != 0 {
+        t.Errorf("Layers len = %d, want 0", len(captured.Layers))
     }
 }
 
-// --- _convertTileRequestsToTiles ---
-
-func TestConvertTileRequestsToTiles(t *testing.T) {
-    requests := []dto.TileRequest{
-        {TileID: "t1", Rotation: 90, XPos: 5, YPos: 10},
-        {TileID: "t2", Rotation: 270, XPos: 3, YPos: 7},
-    }
-
-    tiles := _convertTileRequestsToTiles(requests)
-
-    if len(tiles) != 2 {
-        t.Fatalf("expected 2 tiles, got %d", len(tiles))
-    }
-    if *tiles[0].TileId != "t1" || tiles[0].Rotation != 90 || tiles[0].XPos != 5 || tiles[0].YPos != 10 {
-        t.Errorf("tile[0] mismatch: %+v", tiles[0])
-    }
-    if *tiles[1].TileId != "t2" || tiles[1].Rotation != 270 || tiles[1].XPos != 3 || tiles[1].YPos != 7 {
-        t.Errorf("tile[1] mismatch: %+v", tiles[1])
-    }
-}
-
-func TestConvertTileRequestsToTiles_Empty(t *testing.T) {
-    tiles := _convertTileRequestsToTiles([]dto.TileRequest{})
-    if len(tiles) != 0 {
-        t.Errorf("expected 0 tiles, got %d", len(tiles))
-    }
-}

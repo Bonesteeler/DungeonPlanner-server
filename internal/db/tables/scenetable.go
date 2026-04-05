@@ -26,7 +26,7 @@ type Scene struct {
 }
 
 func GetAllScenes(db *sql.DB) ([]Scene, error) {
-    rows, err := db.Query(`SELECT "ID", "Name", "Author", " ", "ModerationStatus" FROM public."Scenes"`)
+    rows, err := db.Query(`SELECT "ID", "Name", "Author", "ModerationStatus" FROM public."Scenes"`)
     if err != nil {
         return nil, fmt.Errorf("failed to query scenes: %w", err)
     }

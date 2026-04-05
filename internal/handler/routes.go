@@ -9,7 +9,7 @@ import (
 )
 
 func SetupRoutes(e *echo.Echo, sceneHandler *SceneHandler) {
-    scenes := e.Group("v1//scenes")
+    scenes := e.Group("v1/scenes")
 
     scenes.GET("/", sceneHandler.GetScenes)
     scenes.GET("/list/:start", sceneHandler.ListScenes)
