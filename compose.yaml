@@ -13,7 +13,7 @@ services:
         - action: rebuild
           path: .
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - DB_HOST=db
     secrets:
       - db-password
   db:
@@ -27,8 +27,8 @@ services:
     environment:
       - POSTGRES_DB=scenes
       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
-    expose:
-      - 5432
+    ports:
+      - 5432:5432
     healthcheck:
       test: [ "CMD", "pg_isready" ]
       interval: 10s
@@ -38,5 +38,5 @@ volumes:
   db-data:
 secrets:
   db-password:
-    file: db/password.txt
+    file: secrets/password.txt
 
