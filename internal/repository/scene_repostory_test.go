@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 
 	"DungeonPlannerServer/internal/db/tables"
-	"DungeonPlannerServer/internal/handler/dto"
+	"DungeonPlannerServer/internal/model"
 )
 
 var sceneColumns = []string{"ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus"}
@@ -313,11 +313,11 @@ const insertTileQuery = `INSERT INTO public."Tiles" ("TileId", "Rotation", "XPos
 func TestAddScene_Success(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
-    request := dto.AddSceneRequest{
+    request := model.Scene{
         Name:   "New Scene",
         Author: "Author",
-        Layers: []dto.LayerRequest{
-            {Tiles: []dto.TileRequest{
+        Layers: []model.Layer{
+            {Tiles: []model.Tile{
                 {TileID: "tile-1", Rotation: 90, XPos: 3, YPos: 5},
             }},
         },
@@ -349,10 +349,10 @@ func TestAddScene_Success(t *testing.T) {
 func TestAddScene_NoLayers_SkipsLayerAndTileInsert(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
-    request := dto.AddSceneRequest{
+    request := model.Scene{
         Name:   "Scene No Layers",
         Author: "Author",
-        Layers: []dto.LayerRequest{},
+        Layers: []model.Layer{},
     }
 
     mock.ExpectBegin()
@@ -377,7 +377,7 @@ func TestAddScene_BeginError(t *testing.T) {
 
     mock.ExpectBegin().WillReturnError(errors.New("begin failed"))
 
-    if err := repo.AddScene(dto.AddSceneRequest{Name: "S", Author: "A"}); err == nil {
+    if err := repo.AddScene(model.Scene{Name: "S", Author: "A"}); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -394,7 +394,7 @@ func TestAddScene_InsertSceneError_RollsBack(t *testing.T) {
         WillReturnError(errors.New("insert scene failed"))
     mock.ExpectRollback()
 
-    if err := repo.AddScene(dto.AddSceneRequest{Name: "S", Author: "A", Layers: []dto.LayerRequest{}}); err == nil {
+    if err := repo.AddScene(model.Scene{Name: "S", Author: "A", Layers: []model.Layer{}}); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -405,11 +405,11 @@ func TestAddScene_InsertSceneError_RollsBack(t *testing.T) {
 func TestAddScene_InsertTilesError_RollsBack(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
-    request := dto.AddSceneRequest{
+    request := model.Scene{
         Name:   "S",
         Author: "A",
-        Layers: []dto.LayerRequest{
-            {Tiles: []dto.TileRequest{{TileID: "tile-1"}}},
+        Layers: []model.Layer{
+            {Tiles: []model.Tile{{TileID: "tile-1"}}},
         },
     }
 

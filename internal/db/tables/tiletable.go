@@ -38,7 +38,7 @@ func GetTilesByLayerID(db *sql.DB, layerID uuid.UUID) ([]Tile, error) {
 }
 
 func GetTilesByLayerIDs(db *sql.DB, layerIDs []uuid.UUID) (map[uuid.UUID][]Tile, error) {
-		rows, err := db.Query(`SELECT "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" IN ($1)`, layerIDs)
+		rows, err := db.Query(`SELECT "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" = ANY($1)`, layerIDs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query tiles: %w", err)
 		}

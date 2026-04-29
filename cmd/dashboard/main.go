@@ -15,14 +15,6 @@ import (
 		"DungeonPlannerServer/internal/db/tables"
 )
 
-type Scene struct {
-    SceneID         string
-    SceneName       string
-    Author          string
-    UniqueTileCount int
-    UniqueTileIDs   string
-}
-
 func main() {
 		e := echo.New()
     a := app.New()
@@ -33,8 +25,7 @@ func main() {
 			e.Logger.Fatal("Error reading secret file:", err)
 		}
 		dbPassword := strings.TrimSpace(string(secretBytes))
-		e.Logger.Info("Using database password: %s", dbPassword)
-
+ 
 		dbconnection, err := db.Connect(dbPassword)
 		if err != nil {
 			e.Logger.Fatal("Database connection failed:", err)

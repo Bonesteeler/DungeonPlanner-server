@@ -52,38 +52,6 @@ func GetTableNames(db *sql.DB) ([]string, error) {
 		return tableNames, nil
 }
 
-func GetTableContents(db *sql.DB, tableName string) ([]map[string]any, error) {
-		rows, err := db.Query(fmt.Sprintf("SELECT * FROM \"%s\"", tableName))
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		columns, err := rows.Columns()
-		if err != nil {
-			return nil, err
-		}
-		var results []map[string]any
-		for rows.Next() {
-			values := make([]any, len(columns))
-			valuePtrs := make([]any, len(columns))
-			for i := range columns {
-				valuePtrs[i] = &values[i]
-			}
-			if err := rows.Scan(valuePtrs...); err != nil {
-				return nil, err
-			}
-			rowMap := make(map[string]any)
-			for i, col := range columns {
-				rowMap[col] = values[i]
-			}
-			results = append(results, rowMap)
-		}
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
-		return results, nil
-}
-
 func getEnv(key, fallback string) string {
     if val := os.Getenv(key); val != "" {
         return val
