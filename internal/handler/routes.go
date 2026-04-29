@@ -9,6 +9,10 @@ import (
 )
 
 func SetupRoutes(e *echo.Echo, sceneHandler *SceneHandler) {
+		home := e.Group("/")
+		home.GET("", func(c echo.Context) error {
+			return c.JSON(http.StatusOK, struct{ Message string }{Message: "Welcome to the Dungeon Planner API"})
+		})
     scenes := e.Group("v1/scenes")
 
     scenes.GET("/", sceneHandler.GetScenes)
