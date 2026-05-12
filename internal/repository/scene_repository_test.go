@@ -13,7 +13,7 @@ import (
 )
 
 var sceneColumns = []string{"ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus"}
-var layerColumns = []string{"ID", "SceneId"}
+var layerColumns = []string{"ID", "SceneId", "Height"}
 var tileColumns = []string{"TileId", "Rotation", "XPos", "YPos", "LayerId"}
 
 func getRepositoryWithMockDB(t *testing.T) (*SceneRepository, sqlmock.Sqlmock) {
@@ -170,7 +170,7 @@ func TestListApprovedScenes_DBError(t *testing.T) {
 // ---- GetSceneByID ----
 
 const getSceneByIDQuery = `SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes" WHERE "ID" = $1`
-const getLayersBySceneIDQuery = `SELECT "ID", "SceneId" FROM public."Layers" WHERE "SceneId" = $1`
+const getLayersBySceneIDQuery = `SELECT "ID", "SceneId", "Height" FROM public."Layers" WHERE "SceneId" = $1`
 const getTilesByLayerIDQuery = `SELECT "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" = $1`
 
 func TestGetSceneByID_Found(t *testing.T) {
@@ -188,7 +188,7 @@ func TestGetSceneByID_Found(t *testing.T) {
     mock.ExpectQuery(getLayersBySceneIDQuery).
         WithArgs(sceneID).
         WillReturnRows(sqlmock.NewRows(layerColumns).
-            AddRow(layerID, sceneID))
+            AddRow(layerID, sceneID, 0))
 
     mock.ExpectQuery(getTilesByLayerIDQuery).
         WithArgs(layerID).
@@ -307,7 +307,7 @@ func TestGetSceneByID_LayersQueryError(t *testing.T) {
 // ---- AddScene ----
 
 const insertSceneQuery = `INSERT INTO public."Scenes" ("ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus") VALUES ($1, $2, $3, $4, $5)`
-const insertLayerQuery = `INSERT INTO public."Layers" ("ID", "SceneId") VALUES ($1, $2)`
+const insertLayerQuery = `INSERT INTO public."Layers" ("ID", "SceneId", "Height") VALUES ($1, $2, $3)`
 const insertTileQuery = `INSERT INTO public."Tiles" ("TileId", "Rotation", "XPos", "YPos", "LayerId") VALUES ($1, $2, $3, $4, $5)`
 
 func TestAddScene_Success(t *testing.T) {
@@ -330,7 +330,7 @@ func TestAddScene_Success(t *testing.T) {
         WillReturnResult(sqlmock.NewResult(1, 1))
     mock.ExpectPrepare(insertLayerQuery).
         ExpectExec().
-        WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
+        WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
         WillReturnResult(sqlmock.NewResult(1, 1))
     mock.ExpectPrepare(insertTileQuery).
         ExpectExec().

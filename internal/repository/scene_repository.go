@@ -108,8 +108,8 @@ func (r *SceneRepository) AddScene(request model.Scene) error {
         layers = append(layers, tables.Layer{
             ID:      uuid.New(),
             SceneId: sceneID,
+						Height:  lr.Height,
         })
-        _ = lr
     }
 
     tx, err := r.db.Begin()

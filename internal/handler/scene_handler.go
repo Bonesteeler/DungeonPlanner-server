@@ -11,15 +11,17 @@ import (
 )
 
 type SceneService interface {
-	ListScenes(offset int) []model.Scene
+	ListScenes(offset int) ([]model.Scene, int)
 	GetSceneByID(id uuid.UUID) *model.Scene
-	AddScene(scene model.Scene)
+	AddScene(scene model.Scene) error
 	GetSceneStats() int
 }
 
 type SceneHandler struct {
 	service SceneService
 }
+
+const pageSize = 20
 
 func NewSceneHandler(service SceneService) *SceneHandler {
 	return &SceneHandler{service: service}
@@ -70,21 +72,21 @@ func requestToScene(r dto.AddSceneRequest) model.Scene {
 }
 
 func (h *SceneHandler) GetScenes(c echo.Context) error {
-	scenes := h.service.ListScenes(0)
-	responses := make([]dto.SceneResponse, 0, len(scenes))
-	for _, s := range scenes {
-		responses = append(responses, sceneToResponse(s))
-	}
-	return c.JSON(http.StatusOK, responses)
+	stats := h.service.GetSceneStats()
+	return c.JSON(http.StatusOK, stats)
 }
 
-func (h *SceneHandler) ListScenes(c echo.Context) error {
-	scenes := h.service.ListScenes(0)
+func (h *SceneHandler) ListScenes(c echo.Context, offset int) error {
+	scenes, total := h.service.ListScenes(offset)
 	responses := make([]dto.SceneResponse, 0, len(scenes))
 	for _, s := range scenes {
 		responses = append(responses, sceneToResponse(s))
 	}
-	return c.JSON(http.StatusOK, responses)
+	return c.JSON(http.StatusOK, dto.SceneListResponse{
+		Scenes:     responses,
+		TotalCount: total,
+		PageSize:   pageSize,
+	})
 }
 
 func (h *SceneHandler) GetSceneByID(c echo.Context, id string) error {
@@ -94,13 +96,16 @@ func (h *SceneHandler) GetSceneByID(c echo.Context, id string) error {
 	}
 	scene := h.service.GetSceneByID(sceneID)
 	if scene == nil {
-		return c.JSON(http.StatusOK, nil)
+		return c.JSON(http.StatusNotFound, nil)
 	}
 	r := sceneToResponse(*scene)
 	return c.JSON(http.StatusOK, &r)
 }
 
 func (h *SceneHandler) AddScene(c echo.Context, s dto.AddSceneRequest) error {
-	h.service.AddScene(requestToScene(s))
+	err := h.service.AddScene(requestToScene(s))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, struct{ Error string }{Error: "Failed to add scene"})
+	}
 	return c.JSON(http.StatusOK, struct{ Status string }{Status: "Scene added successfully"})
 }

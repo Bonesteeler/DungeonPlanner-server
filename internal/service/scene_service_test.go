@@ -12,13 +12,21 @@ import (
 // --- Mock ---
 
 type mockSceneRepo struct {
-	listApprovedScenesFn func(offset int) ([]model.Scene, error)
-	getSceneByIDFn       func(id uuid.UUID) (*model.Scene, error)
-	addSceneFn           func(request model.Scene) error
+	listApprovedScenesFn     func(offset int) ([]model.Scene, error)
+	getApprovedSceneCountFn  func() (int, error)
+	getSceneByIDFn           func(id uuid.UUID) (*model.Scene, error)
+	addSceneFn               func(request model.Scene) error
 }
 
 func (m *mockSceneRepo) ListApprovedScenes(offset int) ([]model.Scene, error) {
 	return m.listApprovedScenesFn(offset)
+}
+
+func (m *mockSceneRepo) GetApprovedSceneCount() (int, error) {
+	if m.getApprovedSceneCountFn != nil {
+		return m.getApprovedSceneCountFn()
+	}
+	return 0, nil
 }
 
 func (m *mockSceneRepo) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
@@ -57,7 +65,7 @@ func TestListScenes_Success(t *testing.T) {
 	}
 	sceneService := NewSceneService(mock)
 
-	result := sceneService.ListScenes(5)
+	result, _ := sceneService.ListScenes(5)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 scenes, got %d", len(result))
@@ -87,7 +95,7 @@ func TestListScenes_RepoError_ReturnsEmpty(t *testing.T) {
 	}
 	sceneService := NewSceneService(mock)
 
-	result := sceneService.ListScenes(0)
+	result, _ := sceneService.ListScenes(0)
 
 	if len(result) != 0 {
 		t.Errorf("expected empty slice on error, got %d items", len(result))
@@ -102,7 +110,7 @@ func TestListScenes_EmptyResult(t *testing.T) {
 	}
 	sceneService := NewSceneService(mock)
 
-	result := sceneService.ListScenes(0)
+	result, _ := sceneService.ListScenes(0)
 
 	if len(result) != 0 {
 		t.Errorf("expected empty/nil slice, got %d items", len(result))

@@ -16,15 +16,15 @@ import (
 // --- Mock ---
 
 type mockSceneService struct {
-	listScenesFn    func(offset int) []model.Scene
+	listScenesFn    func(offset int) ([]model.Scene, int)
 	getSceneByIDFn  func(id uuid.UUID) *model.Scene
-	addSceneFn      func(scene model.Scene)
+	addSceneFn      func(scene model.Scene) error
 	getSceneStatsFn func() int
 }
 
-func (m *mockSceneService) ListScenes(offset int) []model.Scene  { return m.listScenesFn(offset) }
+func (m *mockSceneService) ListScenes(offset int) ([]model.Scene, int) { return m.listScenesFn(offset) }
 func (m *mockSceneService) GetSceneByID(id uuid.UUID) *model.Scene { return m.getSceneByIDFn(id) }
-func (m *mockSceneService) AddScene(scene model.Scene)             { m.addSceneFn(scene) }
+func (m *mockSceneService) AddScene(scene model.Scene) error       { return m.addSceneFn(scene) }
 func (m *mockSceneService) GetSceneStats() int                     { return m.getSceneStatsFn() }
 
 // --- Helpers ---
@@ -36,74 +36,36 @@ func newEchoContext(method, path string) (echo.Context, *httptest.ResponseRecord
 	return e.NewContext(req, rec), rec
 }
 
-// --- GetScenes ---
-
-func TestGetScenes_ReturnsScenes(t *testing.T) {
-	id := uuid.New()
-	h := NewSceneHandler(&mockSceneService{
-		listScenesFn: func(offset int) []model.Scene {
-			return []model.Scene{{ID: id.String(), Name: "Test Scene", Author: "Alice"}}
-		},
-	})
-
-	c, rec := newEchoContext(http.MethodGet, "/scenes/")
-	if err := h.GetScenes(c); err != nil {
-		t.Fatalf("GetScenes() returned error: %v", err)
-	}
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	var got []dto.SceneResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-	if len(got) != 1 || got[0].Name != "Test Scene" {
-		t.Errorf("unexpected response body: %v", got)
-	}
-}
-
-func TestGetScenes_CallsListScenesWithOffsetZero(t *testing.T) {
-	capturedOffset := -1
-	h := NewSceneHandler(&mockSceneService{
-		listScenesFn: func(offset int) []model.Scene {
-			capturedOffset = offset
-			return nil
-		},
-	})
-
-	c, _ := newEchoContext(http.MethodGet, "/scenes/")
-	h.GetScenes(c)
-
-	if capturedOffset != 0 {
-		t.Errorf("ListScenes called with offset %d, want 0", capturedOffset)
-	}
-}
-
 // --- ListScenes ---
 
 func TestListScenes_ReturnsScenes(t *testing.T) {
 	id := uuid.New()
 	h := NewSceneHandler(&mockSceneService{
-		listScenesFn: func(offset int) []model.Scene {
-			return []model.Scene{{ID: id.String(), Name: "Scene B", Author: "Bob"}}
+		listScenesFn: func(offset int) ([]model.Scene, int) {
+			return []model.Scene{{ID: id.String(), Name: "Scene B", Author: "Bob"}}, 1
 		},
 	})
 
 	c, rec := newEchoContext(http.MethodGet, "/scenes/list/0")
-	if err := h.ListScenes(c); err != nil {
+	if err := h.ListScenes(c, 0); err != nil {
 		t.Fatalf("ListScenes() returned error: %v", err)
 	}
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	var got []dto.SceneResponse
+	var got dto.SceneListResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
-	if len(got) != 1 || got[0].Name != "Scene B" {
+	if len(got.Scenes) != 1 || got.Scenes[0].Name != "Scene B" {
 		t.Errorf("unexpected response body: %v", got)
+	}
+	if got.TotalCount != 1 {
+		t.Errorf("TotalCount = %d, want 1", got.TotalCount)
+	}
+	if got.PageSize != pageSize {
+		t.Errorf("PageSize = %d, want %d", got.PageSize, pageSize)
 	}
 }
 
@@ -162,7 +124,7 @@ func TestGetSceneByID_InvalidUUID_ReturnsBadRequest(t *testing.T) {
 func TestAddScene_ReturnsSuccess(t *testing.T) {
 	called := false
 	h := NewSceneHandler(&mockSceneService{
-		addSceneFn: func(scene model.Scene) { called = true },
+		addSceneFn: func(scene model.Scene) error { called = true; return nil },
 	})
 
 	c, rec := newEchoContext(http.MethodPost, "/scenes/add")
@@ -188,7 +150,7 @@ func TestAddScene_ReturnsSuccess(t *testing.T) {
 func TestAddScene_ForwardsRequestToService(t *testing.T) {
 	var captured model.Scene
 	h := NewSceneHandler(&mockSceneService{
-		addSceneFn: func(scene model.Scene) { captured = scene },
+		addSceneFn: func(scene model.Scene) error { captured = scene; return nil },
 	})
 
 	req := dto.AddSceneRequest{

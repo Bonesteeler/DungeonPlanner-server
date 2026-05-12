@@ -10,10 +10,11 @@ import (
 type Layer struct {
 		ID      uuid.UUID
 		SceneId uuid.UUID
+		Height  int
 }
 
 func GetLayersBySceneID(db *sql.DB, sceneID uuid.UUID) ([]Layer, error) {
-		rows, err := db.Query(`SELECT "ID", "SceneId" FROM public."Layers" WHERE "SceneId" = $1`, sceneID)
+		rows, err := db.Query(`SELECT "ID", "SceneId", "Height" FROM public."Layers" WHERE "SceneId" = $1`, sceneID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query layers: %w", err)
 		}
@@ -22,7 +23,7 @@ func GetLayersBySceneID(db *sql.DB, sceneID uuid.UUID) ([]Layer, error) {
 		var layers []Layer
 		for rows.Next() {
 			var layer Layer
-			if err := rows.Scan(&layer.ID, &layer.SceneId); err != nil {
+			if err := rows.Scan(&layer.ID, &layer.SceneId, &layer.Height); err != nil {
 				return nil, fmt.Errorf("failed to scan layer row: %w", err)
 			}
 			layers = append(layers, layer)
@@ -34,13 +35,13 @@ func GetLayersBySceneID(db *sql.DB, sceneID uuid.UUID) ([]Layer, error) {
 }
 
 func InsertLayers(tx *sql.Tx, layers []Layer) error {
-		stmt, err := tx.Prepare(`INSERT INTO public."Layers" ("ID", "SceneId") VALUES ($1, $2)`)
+		stmt, err := tx.Prepare(`INSERT INTO public."Layers" ("ID", "SceneId", "Height") VALUES ($1, $2, $3)`)
 		if err != nil {
 			return fmt.Errorf("failed to prepare insert statement for layers: %w", err)
 		}
 		defer stmt.Close()
 		for _, layer := range layers {
-			if _, err := stmt.Exec(layer.ID, layer.SceneId); err != nil {
+			if _, err := stmt.Exec(layer.ID, layer.SceneId, layer.Height); err != nil {
 				return fmt.Errorf("failed to execute insert statement for layer: %w", err)
 			}
 		}

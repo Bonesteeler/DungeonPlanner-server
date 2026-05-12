@@ -22,7 +22,7 @@ func Connect(password string) (*sql.DB, error) {
     user := getEnv("DB_USER", "postgres")
     dbname := getEnv("DB_NAME", "scenes")
 
-    psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+    psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=prefer",
         host, port, user, string(password), dbname)
 		db, err := sql.Open("postgres", psqlInfo)
 		if err != nil {

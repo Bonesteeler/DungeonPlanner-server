@@ -16,12 +16,12 @@ type TileResponse struct {
 
 type LayerRequest struct {
 	Height int
-	Tiles []TileRequest
+	Tiles  []TileRequest
 }
 
 type LayerResponse struct {
 	Height int
-	Tiles []TileResponse
+	Tiles  []TileResponse
 }
 
 type AddSceneRequest struct {
@@ -36,6 +36,12 @@ type SceneResponse struct {
 	Author        string
 	UniqueTileIDs []string
 	Layers        []LayerResponse
+}
+
+type SceneListResponse struct {
+	Scenes     []SceneResponse
+	TotalCount int
+	PageSize   int
 }
 
 type SceneStatsResponse struct {

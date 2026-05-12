@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 
@@ -16,7 +17,14 @@ func SetupRoutes(e *echo.Echo, sceneHandler *SceneHandler) {
     scenes := e.Group("v1/scenes")
 
     scenes.GET("/", sceneHandler.GetScenes)
-    scenes.GET("/list/:start", sceneHandler.ListScenes)
+    scenes.GET("/list/:start", func(c echo.Context) error {
+        start := c.Param("start")
+        offset, err := strconv.Atoi(start)
+        if err != nil {
+            return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid start parameter"})
+        }
+        return sceneHandler.ListScenes(c, offset)
+    })
     scenes.GET("/:id", func(c echo.Context) error {
         id := c.Param("id")
         return sceneHandler.GetSceneByID(c, id)
