@@ -10,6 +10,13 @@ import (
 )
 
 func Connect(password string) (*sql.DB, error) {
+	  if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+        db, err := sql.Open("postgres", dbURL)
+        if err != nil {
+            return nil, err
+        }
+        return db, db.Ping()
+    }
 		host := getEnv("DB_HOST", "localhost")
     port := getEnv("DB_PORT", "5432")
     user := getEnv("DB_USER", "postgres")
@@ -17,18 +24,18 @@ func Connect(password string) (*sql.DB, error) {
 
     psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
         host, port, user, string(password), dbname)
-  db, err := sql.Open("postgres", psqlInfo)
-  if err != nil {
-    return nil, err
-  }
+		db, err := sql.Open("postgres", psqlInfo)
+		if err != nil {
+			return nil, err
+		}
 
-  err = db.Ping()
-  if err != nil {
-    return nil, err
-  }
+		err = db.Ping()
+		if err != nil {
+			return nil, err
+		}
 
-  fmt.Println("Successfully connected!")
-  return db, nil
+		fmt.Println("Successfully connected!")
+		return db, nil
 }
 
 func GetTableNames(db *sql.DB) ([]string, error) {
