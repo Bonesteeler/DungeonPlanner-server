@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/labstack/echo/v4"
+
 	"github.com/google/uuid"
 
 	"DungeonPlannerServer/internal/db"
@@ -16,8 +18,8 @@ type SceneRepository struct {
     db *sql.DB
 }
 
-func NewSceneRepository() (*SceneRepository, error) {
-    conn, err := _establishConnection()
+func NewSceneRepository(e *echo.Echo) (*SceneRepository, error) {
+    conn, err := _establishConnection(e)
     if err != nil {
         return nil, err
     }
@@ -149,10 +151,10 @@ func derefString(s *string) string {
     return *s
 }
 
-func _establishConnection() (*sql.DB, error) {
+func _establishConnection(e *echo.Echo) (*sql.DB, error) {
     var password string
     if passwordBytes, err := os.ReadFile("/run/secrets/db-password"); err == nil {
         password = strings.TrimSpace(string(passwordBytes))
     }
-    return db.Connect(password)
+    return db.Connect(password, e)
 }

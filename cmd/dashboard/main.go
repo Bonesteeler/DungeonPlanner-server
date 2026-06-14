@@ -26,7 +26,7 @@ func main() {
 		}
 		dbPassword := strings.TrimSpace(string(secretBytes))
  
-		dbconnection, err := db.Connect(dbPassword)
+		dbconnection, err := db.Connect(dbPassword, e)
 		if err != nil {
 			e.Logger.Fatal("Database connection failed:", err)
 		}

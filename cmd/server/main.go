@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"os"	
 
 	"DungeonPlannerServer/internal/handler"
 	"DungeonPlannerServer/internal/service"
@@ -15,10 +15,10 @@ func main() {
 
 	e := echo.New()
 
-	e.Use(middleware.Logger())
+	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
 
-	repository, err := repository.NewSceneRepository()
+	repository, err := repository.NewSceneRepository(e)
 	if err != nil {
 		e.Logger.Fatal("Failed to initialize repository: ", err)
 	}
