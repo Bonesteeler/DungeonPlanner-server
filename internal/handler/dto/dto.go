@@ -1,49 +1,49 @@
 package dto
 
 type TileRequest struct {
-	TileID   string
-	Rotation int
-	XPos     int
-	YPos     int
+	TileID   string `json:"tile_id"`
+	Rotation int    `json:"rotation"`
+	XPos     int    `json:"x_pos"`
+	YPos     int    `json:"y_pos"`
 }
 
 type TileResponse struct {
-	TileID   string
-	Rotation int
-	XPos     int
-	YPos     int
+	TileID   string `json:"tile_id"`
+	Rotation int    `json:"rotation"`
+	XPos     int    `json:"x_pos"`
+	YPos     int    `json:"y_pos"`
 }
 
 type LayerRequest struct {
-	Height int
-	Tiles  []TileRequest
+	Height int           `json:"height"`
+	Tiles  []TileRequest `json:"tiles"`
 }
 
 type LayerResponse struct {
-	Height int
-	Tiles  []TileResponse
+	Height int            `json:"height"`
+	Tiles  []TileResponse `json:"tiles"`
 }
 
 type AddSceneRequest struct {
-	Name   string
-	Author string
-	Layers []LayerRequest
+	Name   string         `json:"name"`
+	Author string         `json:"author"`
+	Layers []LayerRequest `json:"layers"`
 }
 
 type SceneResponse struct {
-	ID            string
-	Name          string
-	Author        string
-	UniqueTileIDs []string
-	Layers        []LayerResponse
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Author        string          `json:"author"`
+	UniqueTileIDs []string        `json:"unique_tile_ids"`
+	Layers        []LayerResponse `json:"layers"`
 }
 
 type SceneListResponse struct {
-	Scenes     []SceneResponse
-	TotalCount int
-	PageSize   int
+	Scenes     []SceneResponse `json:"scenes"`
+	TotalCount int             `json:"total_count"`
+	PageSize   int             `json:"page_size"`
 }
 
 type SceneStatsResponse struct {
-	ApprovedScenes int
+	ApprovedScenes int `json:"approved_scenes"`
 }
