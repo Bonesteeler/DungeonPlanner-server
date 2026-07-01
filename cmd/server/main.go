@@ -1,11 +1,12 @@
 package main
 
 import (
-	"os"	
+	"os"
 
+	"DungeonPlannerServer/internal/auth"
 	"DungeonPlannerServer/internal/handler"
-	"DungeonPlannerServer/internal/service"
 	"DungeonPlannerServer/internal/repository"
+	"DungeonPlannerServer/internal/service"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -26,6 +27,10 @@ func main() {
 	sceneHandler := handler.NewSceneHandler(sceneService)
 
 	handler.SetupRoutes(e, sceneHandler)
+
+	if _, err := auth.NewTokenManagerFromSecrets(); err != nil {
+		e.Logger.Fatal("Failed to load auth secrets: ", err)
+	}
 
 	httpPort := os.Getenv("PORT")
 	if httpPort == "" {
