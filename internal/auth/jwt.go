@@ -32,13 +32,13 @@ func NewTokenManager(accessKey, refreshKey []byte) *TokenManager {
 }
 
 func NewTokenManagerFromSecrets() (*TokenManager, error) {
-	accessBytes, err := os.ReadFile("/run/secrets/auth_access")
+	accessBytes, err := os.ReadFile("/run/secrets/auth-access")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read access secret file: %w", err)
 	}
 	accessBytes = bytes.TrimSpace(accessBytes)
 
-	refreshBytes, err := os.ReadFile("/run/secrets/auth_refresh")
+	refreshBytes, err := os.ReadFile("/run/secrets/auth-refresh")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read refresh secret file: %w", err)
 	}

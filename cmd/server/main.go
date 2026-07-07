@@ -19,6 +19,11 @@ func main() {
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
 
+	tokenManager, err := auth.NewTokenManagerFromSecrets()
+	if err != nil {
+		e.Logger.Fatal("Failed to load auth secrets: ", err)
+	}
+
 	repository, err := repository.NewSceneRepository(e)
 	if err != nil {
 		e.Logger.Fatal("Failed to initialize repository: ", err)
@@ -26,11 +31,7 @@ func main() {
 	sceneService := service.NewSceneService(repository)
 	sceneHandler := handler.NewSceneHandler(sceneService)
 
-	handler.SetupRoutes(e, sceneHandler)
-
-	if _, err := auth.NewTokenManagerFromSecrets(); err != nil {
-		e.Logger.Fatal("Failed to load auth secrets: ", err)
-	}
+	handler.SetupRoutes(e, sceneHandler, tokenManager)
 
 	httpPort := os.Getenv("PORT")
 	if httpPort == "" {
