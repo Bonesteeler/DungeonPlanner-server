@@ -1,4 +1,4 @@
-package handler
+package middleware
 
 import (
 	"DungeonPlannerServer/internal/auth"
