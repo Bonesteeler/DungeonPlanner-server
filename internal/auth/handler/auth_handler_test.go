@@ -90,3 +90,54 @@ func TestGenerateTokensFromRefreshToken_ServiceError_ReturnsUnauthorized(t *test
         t.Errorf("error message = %q, want %q", got.Error, "Unauthorized")
     }
 }
+
+// --- GenerateTokensFromLogin ---
+
+func TestGenerateTokensFromLogin_Success(t *testing.T) {
+		expected := model.TokenPair{AccessToken: "access-abc", RefreshToken: "refresh-xyz"}
+		h := NewAuthHandler(&mockAuthService{
+			generateFromLoginFn: func(username, password string) (model.TokenPair, error) {
+				return expected, nil
+			},
+		})
+	c, rec := newAuthEchoContext(http.MethodPost, "/auth/login")
+	if err := h.GenerateTokensFromLogin(c, "testuser", "password"); err != nil {
+		t.Fatalf("GenerateTokensFromLogin() returned error: %v", err)
+	}
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var got dto.GeneratedTokensResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if got.AccessToken != expected.AccessToken {
+		t.Errorf("AccessToken = %q, want %q", got.AccessToken, expected.AccessToken)
+	}
+	if got.RefreshToken != expected.RefreshToken {
+		t.Errorf("RefreshToken = %q, want %q", got.RefreshToken, expected.RefreshToken)
+	}
+}
+
+func TestGenerateTokensFromLogin_ServiceError_ReturnsUnauthorized(t *testing.T) {
+	h := NewAuthHandler(&mockAuthService{
+		generateFromLoginFn: func(username, password string) (model.TokenPair, error) {
+			return model.TokenPair{}, errors.New("invalid credentials")
+		},
+	})
+	c, rec := newAuthEchoContext(http.MethodPost, "/auth/login")
+	if err := h.GenerateTokensFromLogin(c, "testuser", "wrongpassword"); err != nil {
+		t.Fatalf("GenerateTokensFromLogin() returned error: %v", err)
+	}
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+	var got struct{ Error string }
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if got.Error != "Unauthorized" {
+		t.Errorf("error message = %q, want %q", got.Error, "Unauthorized")
+	}
+}

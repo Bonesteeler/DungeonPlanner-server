@@ -3,23 +3,31 @@ package service
 import (
 	"errors"
 
+	"github.com/google/uuid"
+
 	"DungeonPlannerServer/internal/auth"
 	"DungeonPlannerServer/internal/auth/model"
 )
 
-type AuthRepo interface {
+type TokenRepo interface {
 	StoreToken(token string, userID string)
 	RemoveToken(token string)
 	IsTokenPresent(token string, userID string) bool
 }
 
-type AuthService struct {
-	repo AuthRepo
-	tokenManager *auth.TokenManager
+type PasswordRepo interface {
+	GetPasswordHashByUsername(username string) (string, error)
+	StorePasswordHash(id uuid.UUID, passwordHash string, email string) error
 }
 
-func NewAuthService(authRepo AuthRepo, tokenManager *auth.TokenManager) *AuthService {
-	return &AuthService{repo: authRepo, tokenManager: tokenManager}
+type AuthService struct {
+	refreshTokens TokenRepo
+	tokenManager *auth.TokenManager
+	passwords PasswordRepo
+}
+
+func NewAuthService(tokenRepo TokenRepo, tokenManager *auth.TokenManager, passwordRepo PasswordRepo) *AuthService {
+	return &AuthService{refreshTokens: tokenRepo, tokenManager: tokenManager, passwords: passwordRepo}
 }
 
 func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model.TokenPair, error) {
@@ -27,23 +35,30 @@ func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model
 	if err != nil {
 		return model.TokenPair{}, err
 	}
-	if !s.repo.IsTokenPresent(refreshToken, claims.UserID) {
+	if !s.refreshTokens.IsTokenPresent(refreshToken, claims.UserID) {
 		return model.TokenPair{}, errors.New("Unauthorized")
 	}
-	newTokenPair, err := s.issueTokenPair(claims.UserID, claims.Role)
+	newTokenPair, err := s._issueTokenPair(claims.UserID, claims.Role)
 	if err != nil {
 		return model.TokenPair{}, err
 	}
-	s.repo.RemoveToken(refreshToken)
-	s.repo.StoreToken(newTokenPair.RefreshToken, claims.UserID)
+	s.refreshTokens.RemoveToken(refreshToken)
+	s.refreshTokens.StoreToken(newTokenPair.RefreshToken, claims.UserID)
 	return newTokenPair, nil
 }
 
 func (s *AuthService) GenerateTokensFromLogin(username, password string) (model.TokenPair, error) {
-	return model.TokenPair{}, nil
+	expectedHash, err := s.passwords.GetPasswordHashByUsername(username)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	if !auth.ValidateString(password, expectedHash) {
+		return model.TokenPair{}, errors.New("Unauthorized")
+	}
+	return s._issueTokenPair(username, "user")
 }
 
-func (s *AuthService) issueTokenPair(userID, role string) (model.TokenPair, error) {
+func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, error) {
 	accessToken, err := s.tokenManager.GenerateAccessToken(userID, role)
 	if err != nil {
 		return model.TokenPair{}, err
@@ -56,4 +71,8 @@ func (s *AuthService) issueTokenPair(userID, role string) (model.TokenPair, erro
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *AuthService) StorePasswordHash(id uuid.UUID, passwordHash string, email string) error {
+	return s.passwords.StorePasswordHash(id, passwordHash, email)
 }
