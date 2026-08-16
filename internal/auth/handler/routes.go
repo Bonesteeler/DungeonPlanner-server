@@ -30,6 +30,6 @@ func SetupRoutes(e *echo.Echo, authHandler *AuthHandler, tokenManager *auth.Toke
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(400, struct{ Error string }{Error: "Invalid request"})
 		}
-		return authHandler.StorePassword(c, req.Password, req.Email)
+		return authHandler.UserSignup(c, req.Username, req.Password, req.Email)
 	})
 }

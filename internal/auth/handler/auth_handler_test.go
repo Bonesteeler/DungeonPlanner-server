@@ -18,7 +18,7 @@ import (
 type mockAuthService struct {
     generateFromRefreshFn func(refreshToken string) (model.TokenPair, error)
     generateFromLoginFn   func(username, password string) (model.TokenPair, error)
-    storePasswordFn func(password string, email string) error
+    storePasswordFn func(username string, password string, email string) error
 }
 
 func (m *mockAuthService) GenerateTokensFromRefreshToken(refreshToken string) (model.TokenPair, error) {
@@ -29,8 +29,8 @@ func (m *mockAuthService) GenerateTokensFromLogin(username, password string) (mo
     return m.generateFromLoginFn(username, password)
 }
 
-func (m *mockAuthService) StorePassword(password string, email string) error {
-	return m.storePasswordFn(password, email)
+func (m *mockAuthService) UserSignup(username string, password string, email string) error {
+	return m.storePasswordFn(username, password, email)
 }
 
 // --- Helpers ---
@@ -151,13 +151,13 @@ func TestGenerateTokensFromLogin_ServiceError_ReturnsUnauthorized(t *testing.T) 
 
 func TestStorePassword_Success(t *testing.T) {
 	h := NewAuthHandler(&mockAuthService{
-		storePasswordFn: func(password string, email string) error {
+		storePasswordFn: func(username string, password string, email string) error {
 			return nil
 		},
 	})
 	c, rec := newAuthEchoContext(http.MethodPost, "/auth/store-password")
-	if err := h.StorePassword(c, "new_password", "test@email.com"); err != nil {
-		t.Fatalf("StorePassword() returned error: %v", err)
+	if err := h.UserSignup(c, "testuser", "new_password", "test@email.com"); err != nil {
+		t.Fatalf("UserSignup() returned error: %v", err)
 	}
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -166,13 +166,13 @@ func TestStorePassword_Success(t *testing.T) {
 
 func TestStorePassword_ServiceError(t *testing.T) {
 	h := NewAuthHandler(&mockAuthService{
-		storePasswordFn: func(password string, email string) error {
+		storePasswordFn: func(username string, password string, email string) error {
 			return errors.New("service error")
 		},
 	})
 	c, rec := newAuthEchoContext(http.MethodPost, "/auth/store-password")
-	if err := h.StorePassword(c, "new_password", "test@email.com"); err != nil {
-		t.Fatalf("StorePassword() returned error: %v", err)
+	if err := h.UserSignup(c, "testuser", "new_password", "test@email.com"); err != nil {
+		t.Fatalf("UserSignup() returned error: %v", err)
 	}
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)

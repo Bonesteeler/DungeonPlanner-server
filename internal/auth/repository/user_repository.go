@@ -1,0 +1,58 @@
+package repo
+import (
+	"database/sql"
+	"github.com/google/uuid"
+
+	"github.com/labstack/echo/v4"
+
+	"DungeonPlannerServer/internal/db"
+	"DungeonPlannerServer/internal/db/tables"
+)
+
+type UserRepository struct {
+	db *sql.DB
+}
+
+func NewUserRepository(e *echo.Echo) (*UserRepository, error) {
+		password, err := db.GetPasswordSecret()
+		if err != nil {
+			return nil, err
+		}
+		connection, err := db.Connect(password, e)
+		if err != nil {
+			return nil, err
+		}
+		return &UserRepository{db: connection}, nil
+}
+
+func NewUserRepositoryWithDB(db *sql.DB) *UserRepository {
+		return &UserRepository{db: db}
+}
+
+func (r *UserRepository) GetPasswordHashByUserId(id uuid.UUID) (string, error) {
+	return tables.GetPasswordHashByUserId(r.db, id)
+}
+
+func (r *UserRepository) StorePasswordHash(id uuid.UUID, passwordHash string) error {
+	return tables.StorePasswordHash(r.db, id, passwordHash)
+}
+
+func (r *UserRepository) IsEmailExists(email string) (bool, error) {
+	return tables.IsEmailExists(r.db, email)
+}
+
+func (r *UserRepository) AddUser(id uuid.UUID, username string, email string, passwordHash string) error {
+	err := tables.AddUser(r.db, id, username, email)
+	if err != nil {
+		return err
+	}
+	err = tables.StorePasswordHash(r.db, id, passwordHash)
+	if err != nil {
+		return err
+	}
+	err = tables.StoreRoleForUser(r.db, id, 1)
+	if err != nil {
+		return err
+	}
+	return nil
+}

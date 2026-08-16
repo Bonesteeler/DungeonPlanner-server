@@ -74,7 +74,7 @@ func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, err
 	}, nil
 }
 
-func (s *AuthService) StorePassword(password string, email string) error {
+func (s *AuthService) UserSignup(username string, password string, email string) error {
 	id := uuid.New()
 	used, err := s.passwords.IsEmailExists(email)
 	if err != nil {

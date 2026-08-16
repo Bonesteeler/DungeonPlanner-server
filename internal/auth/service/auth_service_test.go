@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"DungeonPlannerServer/internal/auth"
-	"DungeonPlannerServer/internal/auth/repository"
+	repo "DungeonPlannerServer/internal/auth/repository"
 )
 
 type mockPasswordRepo struct {
@@ -118,7 +118,7 @@ func TestStorePasswordHash_Success(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.StorePassword("hashed_password", testEmail)
+	err := testService.UserSignup("testuser", "hashed_password", testEmail)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
@@ -132,7 +132,7 @@ func TestStorePasswordHash_EmailAlreadyExists(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.StorePassword("hashed_password", testEmail)
+	err := testService.UserSignup("testuser", "hashed_password", testEmail)
 	if err == nil {
 		t.Errorf("expected error for email already exists, got nil")
 	}
@@ -153,7 +153,7 @@ func TestStorePasswordHash_RepoError(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.StorePassword("hashed_password", testEmail)
+	err := testService.UserSignup("username", "hashed_password", testEmail)
 	if err == nil {
 		t.Errorf("expected error for repository failure, got nil")
 	}
