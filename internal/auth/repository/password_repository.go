@@ -29,10 +29,14 @@ func NewPasswordRepositoryWithDB(db *sql.DB) *PasswordRepository {
 		return &PasswordRepository{db: db}
 }
 
-func (r *PasswordRepository) GetPasswordHashByUsername(username string) (string, error) {
-	return tables.GetPasswordHashByEmail(r.db, username)
+func (r *PasswordRepository) GetPasswordHashByEmail(email string) (string, error) {
+	return tables.GetPasswordHashByEmail(r.db, email)
 }
 
 func (r *PasswordRepository) StorePasswordHash(id uuid.UUID, passwordHash string, email string) error {
 	return tables.StorePasswordHash(r.db, id, passwordHash, email)
+}
+
+func (r *PasswordRepository) IsEmailExists(email string) (bool, error) {
+	return tables.IsEmailExists(r.db, email)
 }

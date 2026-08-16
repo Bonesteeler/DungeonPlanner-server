@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,18 +11,22 @@ import (
 )
 
 type mockPasswordRepo struct {
-	GetPasswordHashByUsernameFunc func(username string) (string, error)
+	GetPasswordHashByEmailFunc func(email string) (string, error)
 	StorePasswordHashFunc func(id uuid.UUID, passwordHash string, email string) error
+	IsEmailExistsFunc func(email string) (bool, error)
 }
 
-func (m *mockPasswordRepo) GetPasswordHashByUsername(username string) (string, error) {
-	return m.GetPasswordHashByUsernameFunc(username)
+func (m *mockPasswordRepo) GetPasswordHashByEmail(email string) (string, error) {
+	return m.GetPasswordHashByEmailFunc(email)
 }
 
 func (m *mockPasswordRepo) StorePasswordHash(id uuid.UUID, passwordHash string, email string) error {
 	return m.StorePasswordHashFunc(id, passwordHash, email)
 }
 
+func (m *mockPasswordRepo) IsEmailExists(email string) (bool, error) {
+	return m.IsEmailExistsFunc(email)
+}
 
 func CreateTestAuthService(passwordRepo PasswordRepo) *AuthService {
 	testRepo := repo.NewInMemoryTokenStore()
@@ -72,13 +77,13 @@ func TestGenerateTokensFromLogin_Success(t *testing.T) {
 	expectedPassword := "password"
 	expectedPasswordHash := auth.GenerateString(expectedPassword)
 	mockRepo := &mockPasswordRepo{
-		GetPasswordHashByUsernameFunc: func(username string) (string, error) {
+		GetPasswordHashByEmailFunc: func(email string) (string, error) {
 			return expectedPasswordHash, nil
 		},
 	}
 	testService := CreateTestAuthService(mockRepo)
-	testUsername := "testuser"
-	newTokens, err := testService.GenerateTokensFromLogin(testUsername, expectedPassword)
+	testEmail := "test@email.com"
+	newTokens, err := testService.GenerateTokensFromLogin(testEmail, expectedPassword)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
@@ -89,15 +94,70 @@ func TestGenerateTokensFromLogin_Success(t *testing.T) {
 
 func TestGenerateTokensFromLogin_InvalidPassword(t *testing.T) {
 	mockRepo := &mockPasswordRepo{
-		GetPasswordHashByUsernameFunc: func(username string) (string, error) {
+		GetPasswordHashByEmailFunc: func(email string) (string, error) {
 			return "hashed_password", nil
 		},
 	}
 	testService := CreateTestAuthService(mockRepo)
-	testUsername := "testuser"
+	testEmail := "test@email.com"
 	invalidPassword := "wrongpassword"
-	_, err := testService.GenerateTokensFromLogin(testUsername, invalidPassword)
+	_, err := testService.GenerateTokensFromLogin(testEmail, invalidPassword)
 	if err == nil {
 		t.Errorf("expected error for invalid password, got nil")
+	}
+}
+
+func TestStorePasswordHash_Success(t *testing.T) {
+	mockRepo := &mockPasswordRepo{
+		IsEmailExistsFunc: func(email string) (bool, error) {
+			return false, nil
+		},
+		StorePasswordHashFunc: func(id uuid.UUID, passwordHash string, email string) error {
+			return nil
+		},
+	}
+	testService := CreateTestAuthService(mockRepo)
+	testEmail := "test@email.com"
+	err := testService.StorePassword("hashed_password", testEmail)
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+}
+
+func TestStorePasswordHash_EmailAlreadyExists(t *testing.T) {
+	mockRepo := &mockPasswordRepo{
+		IsEmailExistsFunc: func(email string) (bool, error) {
+			return true, nil
+		},
+	}
+	testService := CreateTestAuthService(mockRepo)
+	testEmail := "test@email.com"
+	err := testService.StorePassword("hashed_password", testEmail)
+	if err == nil {
+		t.Errorf("expected error for email already exists, got nil")
+	}
+	if err.Error() != "email already exists in passwords" {
+		t.Errorf("expected error message 'email already exists in passwords', got %v", err.Error())
+	}
+}
+
+func TestStorePasswordHash_RepoError(t *testing.T) {
+	const databaseError = "database error"
+	mockRepo := &mockPasswordRepo{
+		IsEmailExistsFunc: func(email string) (bool, error) {
+			return false, nil
+		},
+		StorePasswordHashFunc: func(id uuid.UUID, passwordHash string, email string) error {
+			return errors.New(databaseError)
+		},
+	}
+	testService := CreateTestAuthService(mockRepo)
+	testEmail := "test@email.com"
+	err := testService.StorePassword("hashed_password", testEmail)
+	if err == nil {
+		t.Errorf("expected error for repository failure, got nil")
+	}
+	if err.Error() != databaseError {
+		t.Errorf("expected error message '%v', got %v", databaseError, err.Error())
 	}
 }

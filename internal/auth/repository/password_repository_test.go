@@ -24,7 +24,7 @@ func getRepositoryWithMockDB(t *testing.T) (*PasswordRepository, sqlmock.Sqlmock
 
 const getPasswordHashByEmailQuery = `SELECT "PasswordHash" FROM public."Passwords" WHERE "Email" = $1`
 
-func TestGetPasswordHashByUsername_Success(t *testing.T) {
+func TestGetPasswordHashByEmail_Success(t *testing.T) {
 	repo, mock := getRepositoryWithMockDB(t)
 	expectedPasswordHash := "hashed_password"
 	expectedEmail := "test@email.com"
@@ -32,7 +32,7 @@ func TestGetPasswordHashByUsername_Success(t *testing.T) {
 
 	mock.ExpectQuery(regexp.QuoteMeta(getPasswordHashByEmailQuery)).WithArgs(expectedEmail).WillReturnRows(rows)
 
-	passwordHash, err := repo.GetPasswordHashByUsername(expectedEmail)
+	passwordHash, err := repo.GetPasswordHashByEmail(expectedEmail)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

@@ -33,3 +33,12 @@ func StorePasswordHash(db *sql.DB, id uuid.UUID, passwordHash string, email stri
 	}
 	return nil
 }
+
+func IsEmailExists(db *sql.DB, email string) (bool, error) {
+	var exists bool
+	err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM public."Passwords" WHERE "Email" = $1)`, email).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
