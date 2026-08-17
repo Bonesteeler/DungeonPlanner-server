@@ -1,6 +1,7 @@
 package repo
 import (
 	"database/sql"
+	"errors"
 	"github.com/google/uuid"
 
 	"github.com/labstack/echo/v4"
@@ -42,17 +43,33 @@ func (r *UserRepository) IsEmailExists(email string) (bool, error) {
 }
 
 func (r *UserRepository) AddUser(id uuid.UUID, username string, email string, passwordHash string) error {
-	err := tables.AddUser(r.db, id, username, email)
+	tx , err := r.db.Begin()
 	if err != nil {
 		return err
 	}
-	err = tables.StorePasswordHash(r.db, id, passwordHash)
+	emailExists, err := tables.IsEmailExists(tx, email)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
-	err = tables.StoreRoleForUser(r.db, id, 1)
+	if emailExists {
+		tx.Rollback()
+		return errors.New("email already exists")
+	}
+	err = tables.AddUser(tx, id, username, email)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
-	return nil
+	err = tables.StorePasswordHash(tx, id, passwordHash)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = tables.StoreRoleForUser(tx, id, 1)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
