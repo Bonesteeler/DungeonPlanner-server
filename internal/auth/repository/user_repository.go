@@ -42,6 +42,22 @@ func (r *UserRepository) IsEmailExists(email string) (bool, error) {
 	return tables.IsEmailExists(r.db, email)
 }
 
+func (r *UserRepository) GetUserIdByEmail(email string) (uuid.UUID, error) {
+	return tables.GetUserIdByEmail(r.db, email)
+}
+
+func (r *UserRepository) GetUserRoleByUserId(id uuid.UUID) (string, error) {
+	roleId, err := tables.GetRoleForUser(r.db, id)
+	if err != nil {
+		return "", err
+	}
+	roleName, err := tables.GetRoleNameFromId(r.db, roleId)
+	if err != nil {
+		return "", err
+	}
+	return roleName, nil
+}
+
 func (r *UserRepository) AddUser(id uuid.UUID, username string, email string, passwordHash string) error {
 	tx , err := r.db.Begin()
 	if err != nil {

@@ -10,25 +10,35 @@ import (
 	repo "DungeonPlannerServer/internal/auth/repository"
 )
 
-type mockPasswordRepo struct {
+type mockUserRepo struct {
 	GetPasswordHashByEmailFunc func(email string) (string, error)
 	StorePasswordHashFunc func(id uuid.UUID, passwordHash string, email string) error
 	IsEmailExistsFunc func(email string) (bool, error)
+	GetUserIdByEmailFunc func(email string) (uuid.UUID, error)
+	GetUserRoleByUserIdFunc func(id uuid.UUID) (string, error)
 }
 
-func (m *mockPasswordRepo) GetPasswordHashByEmail(email string) (string, error) {
+func (m *mockUserRepo) GetPasswordHashByEmail(email string) (string, error) {
 	return m.GetPasswordHashByEmailFunc(email)
 }
 
-func (m *mockPasswordRepo) StorePasswordHash(id uuid.UUID, passwordHash string, email string) error {
+func (m *mockUserRepo) StorePasswordHash(id uuid.UUID, passwordHash string, email string) error {
 	return m.StorePasswordHashFunc(id, passwordHash, email)
 }
 
-func (m *mockPasswordRepo) IsEmailExists(email string) (bool, error) {
+func (m *mockUserRepo) IsEmailExists(email string) (bool, error) {
 	return m.IsEmailExistsFunc(email)
 }
 
-func CreateTestAuthService(passwordRepo PasswordRepo) *AuthService {
+func (m *mockUserRepo) GetUserIdByEmail(email string) (uuid.UUID, error) {
+	return m.GetUserIdByEmailFunc(email)
+}
+
+func (m *mockUserRepo) GetUserRoleByUserId(id uuid.UUID) (string, error) {
+	return m.GetUserRoleByUserIdFunc(id)
+}
+
+func CreateTestAuthService(passwordRepo UserRepo) *AuthService {
 	testRepo := repo.NewInMemoryTokenStore()
 	tokenManager := auth.NewTokenManager(
 		[]byte("test-access-secret"),
@@ -38,7 +48,7 @@ func CreateTestAuthService(passwordRepo PasswordRepo) *AuthService {
 }
 
 func TestGenerateTokensFromRefreshToken_Success(t *testing.T) {
-	testService := CreateTestAuthService(&mockPasswordRepo{})
+	testService := CreateTestAuthService(&mockUserRepo{})
 	testUserID := "user123"
 	testRefreshToken, _ := testService.tokenManager.GenerateRefreshToken(testUserID, "user")
 	testService.refreshTokens.StoreToken(testRefreshToken, testUserID)
@@ -55,7 +65,7 @@ func TestGenerateTokensFromRefreshToken_Success(t *testing.T) {
 }
 
 func TestGenerateTokensFromRefreshToken_InvalidToken(t *testing.T) {
-	testService := CreateTestAuthService(&mockPasswordRepo{})
+	testService := CreateTestAuthService(&mockUserRepo{})
 	invalidToken := "invalid.token.string"
 	_, err := testService.GenerateTokensFromRefreshToken(invalidToken)
 	if err == nil {
@@ -64,7 +74,7 @@ func TestGenerateTokensFromRefreshToken_InvalidToken(t *testing.T) {
 }
 
 func TestGenerateTokensFromRefreshToken_TokenNotPresent(t *testing.T) {
-	testService := CreateTestAuthService(&mockPasswordRepo{})
+	testService := CreateTestAuthService(&mockUserRepo{})
 	testUserID := "user123"
 	testRefreshToken, _ := testService.tokenManager.GenerateRefreshToken(testUserID, "user")
 	_, err := testService.GenerateTokensFromRefreshToken(testRefreshToken)
@@ -74,16 +84,22 @@ func TestGenerateTokensFromRefreshToken_TokenNotPresent(t *testing.T) {
 }
 
 func TestGenerateTokensFromLogin_Success(t *testing.T) {
+	expectedEmail := "test@email.com"
 	expectedPassword := "password"
 	expectedPasswordHash := auth.GenerateString(expectedPassword)
-	mockRepo := &mockPasswordRepo{
+	mockRepo := &mockUserRepo{
 		GetPasswordHashByEmailFunc: func(email string) (string, error) {
 			return expectedPasswordHash, nil
 		},
+		GetUserIdByEmailFunc: func(email string) (uuid.UUID, error) {
+			return uuid.New(), nil
+		},
+		GetUserRoleByUserIdFunc: func(id uuid.UUID) (string, error) {
+			return "user", nil
+		},
 	}
 	testService := CreateTestAuthService(mockRepo)
-	testEmail := "test@email.com"
-	newTokens, err := testService.GenerateTokensFromLogin(testEmail, expectedPassword)
+	newTokens, err := testService.GenerateTokensFromLogin(expectedEmail, expectedPassword)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
@@ -93,7 +109,7 @@ func TestGenerateTokensFromLogin_Success(t *testing.T) {
 }
 
 func TestGenerateTokensFromLogin_InvalidPassword(t *testing.T) {
-	mockRepo := &mockPasswordRepo{
+	mockRepo := &mockUserRepo{
 		GetPasswordHashByEmailFunc: func(email string) (string, error) {
 			return "hashed_password", nil
 		},
@@ -108,7 +124,7 @@ func TestGenerateTokensFromLogin_InvalidPassword(t *testing.T) {
 }
 
 func TestStorePasswordHash_Success(t *testing.T) {
-	mockRepo := &mockPasswordRepo{
+	mockRepo := &mockUserRepo{
 		IsEmailExistsFunc: func(email string) (bool, error) {
 			return false, nil
 		},
@@ -125,7 +141,7 @@ func TestStorePasswordHash_Success(t *testing.T) {
 }
 
 func TestStorePasswordHash_EmailAlreadyExists(t *testing.T) {
-	mockRepo := &mockPasswordRepo{
+	mockRepo := &mockUserRepo{
 		IsEmailExistsFunc: func(email string) (bool, error) {
 			return true, nil
 		},
@@ -143,7 +159,7 @@ func TestStorePasswordHash_EmailAlreadyExists(t *testing.T) {
 
 func TestStorePasswordHash_RepoError(t *testing.T) {
 	const databaseError = "database error"
-	mockRepo := &mockPasswordRepo{
+	mockRepo := &mockUserRepo{
 		IsEmailExistsFunc: func(email string) (bool, error) {
 			return false, nil
 		},

@@ -15,20 +15,22 @@ type TokenRepo interface {
 	IsTokenPresent(token string, userID string) bool
 }
 
-type PasswordRepo interface {
+type UserRepo interface {
 	GetPasswordHashByEmail(email string) (string, error)
 	StorePasswordHash(id uuid.UUID, passwordHash string, email string) error
 	IsEmailExists(email string) (bool, error)
+	GetUserIdByEmail(email string) (uuid.UUID, error)
+	GetUserRoleByUserId(id uuid.UUID) (string, error)
 }
 
 type AuthService struct {
 	refreshTokens TokenRepo
 	tokenManager *auth.TokenManager
-	passwords PasswordRepo
+	users UserRepo
 }
 
-func NewAuthService(tokenRepo TokenRepo, tokenManager *auth.TokenManager, passwordRepo PasswordRepo) *AuthService {
-	return &AuthService{refreshTokens: tokenRepo, tokenManager: tokenManager, passwords: passwordRepo}
+func NewAuthService(tokenRepo TokenRepo, tokenManager *auth.TokenManager, userRepo UserRepo) *AuthService {
+	return &AuthService{refreshTokens: tokenRepo, tokenManager: tokenManager, users: userRepo}
 }
 
 func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model.TokenPair, error) {
@@ -49,14 +51,22 @@ func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model
 }
 
 func (s *AuthService) GenerateTokensFromLogin(email, password string) (model.TokenPair, error) {
-	expectedHash, err := s.passwords.GetPasswordHashByEmail(email)
+	expectedHash, err := s.users.GetPasswordHashByEmail(email)
 	if err != nil {
 		return model.TokenPair{}, err
 	}
 	if !auth.ValidateString(password, expectedHash) {
 		return model.TokenPair{}, errors.New("Unauthorized")
 	}
-	return s._issueTokenPair(email, "user")
+	userID, err := s.users.GetUserIdByEmail(email)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	role, err := s.users.GetUserRoleByUserId(userID)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	return s._issueTokenPair(userID.String(), role)
 }
 
 func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, error) {
@@ -76,7 +86,7 @@ func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, err
 
 func (s *AuthService) UserSignup(username string, password string, email string) error {
 	id := uuid.New()
-	used, err := s.passwords.IsEmailExists(email)
+	used, err := s.users.IsEmailExists(email)
 	if err != nil {
 		return err
 	}
@@ -84,5 +94,5 @@ func (s *AuthService) UserSignup(username string, password string, email string)
 		return errors.New("email already exists in passwords")
 	}
 	passwordHash := auth.GenerateString(password)
-	return s.passwords.StorePasswordHash(id, passwordHash, email)
+	return s.users.StorePasswordHash(id, passwordHash, email)
 }
