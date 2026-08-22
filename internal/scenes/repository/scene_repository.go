@@ -9,7 +9,7 @@ import (
 
 	"DungeonPlannerServer/internal/db"
 	"DungeonPlannerServer/internal/db/tables"
-	"DungeonPlannerServer/internal/model"
+	"DungeonPlannerServer/internal/scenes/model"
 )
 
 type SceneRepository struct {

@@ -8,7 +8,7 @@ import (
 
 	"DungeonPlannerServer/internal/auth"
 	"DungeonPlannerServer/internal/auth/middleware"
-	"DungeonPlannerServer/internal/handler/dto"
+	"DungeonPlannerServer/internal/scenes/handler/dto"
 )
 
 func SetupRoutes(e *echo.Echo, sceneHandler *SceneHandler, tokenManager *auth.TokenManager) {

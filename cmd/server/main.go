@@ -4,9 +4,9 @@ import (
 	"os"
 
 	"DungeonPlannerServer/internal/auth"
-	"DungeonPlannerServer/internal/handler"
-	"DungeonPlannerServer/internal/repository"
-	"DungeonPlannerServer/internal/service"
+	"DungeonPlannerServer/internal/scenes/handler"
+	"DungeonPlannerServer/internal/scenes/repository"
+	"DungeonPlannerServer/internal/scenes/service"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"

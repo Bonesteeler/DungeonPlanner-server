@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 
 	"DungeonPlannerServer/internal/db/tables"
-	"DungeonPlannerServer/internal/model"
+	"DungeonPlannerServer/internal/scenes/model"
 )
 
 var sceneColumns = []string{"ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus"}
