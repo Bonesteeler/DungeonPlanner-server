@@ -16,11 +16,12 @@ type TokenRepo interface {
 }
 
 type UserRepo interface {
-	GetPasswordHashByEmail(email string) (string, error)
-	StorePasswordHash(id uuid.UUID, passwordHash string, email string) error
+	GetPasswordHashByUserId(id uuid.UUID) (string, error)
+	StorePasswordHash(id uuid.UUID, passwordHash string) error
 	IsEmailExists(email string) (bool, error)
 	GetUserIdByEmail(email string) (uuid.UUID, error)
 	GetUserRoleByUserId(id uuid.UUID) (string, error)
+	AddUser(id uuid.UUID, username string, passwordHash string, email string) error
 }
 
 type AuthService struct {
@@ -51,16 +52,16 @@ func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model
 }
 
 func (s *AuthService) GenerateTokensFromLogin(email, password string) (model.TokenPair, error) {
-	expectedHash, err := s.users.GetPasswordHashByEmail(email)
+	userID, err := s.users.GetUserIdByEmail(email)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	expectedHash, err := s.users.GetPasswordHashByUserId(userID)
 	if err != nil {
 		return model.TokenPair{}, err
 	}
 	if !auth.ValidateString(password, expectedHash) {
 		return model.TokenPair{}, errors.New("Unauthorized")
-	}
-	userID, err := s.users.GetUserIdByEmail(email)
-	if err != nil {
-		return model.TokenPair{}, err
 	}
 	role, err := s.users.GetUserRoleByUserId(userID)
 	if err != nil {
@@ -94,5 +95,5 @@ func (s *AuthService) UserSignup(username string, password string, email string)
 		return errors.New("email already exists in passwords")
 	}
 	passwordHash := auth.GenerateString(password)
-	return s.users.StorePasswordHash(id, passwordHash, email)
+	return s.users.AddUser(id, username, passwordHash, email)
 }
