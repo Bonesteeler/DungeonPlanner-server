@@ -25,7 +25,7 @@ type Scene struct {
     ModerationStatus ModerationStatus
 }
 
-func GetAllScenes(db *sql.DB) ([]Scene, error) {
+func GetAllScenes(db DBTX) ([]Scene, error) {
     rows, err := db.Query(`SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes"`)
     if err != nil {
         return nil, fmt.Errorf("failed to query scenes: %w", err)
@@ -55,7 +55,7 @@ func GetAllScenes(db *sql.DB) ([]Scene, error) {
     return scenes, nil
 }
 
-func GetSceneByID(db *sql.DB, id uuid.UUID) (*Scene, error) {
+func GetSceneByID(db DBTX, id uuid.UUID) (*Scene, error) {
     row := db.QueryRow(`SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes" WHERE "ID" = $1`, id)
 
     var s Scene
@@ -76,7 +76,7 @@ func GetSceneByID(db *sql.DB, id uuid.UUID) (*Scene, error) {
     return &s, nil
 }
 
-func GetSceneCountsByModerationStatus(db *sql.DB) (map[ModerationStatus]int, error) {
+func GetSceneCountsByModerationStatus(db DBTX) (map[ModerationStatus]int, error) {
 		rows, err := db.Query(`SELECT "ModerationStatus", COUNT(*) FROM public."Scenes" GROUP BY "ModerationStatus"`)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query scene counts: %w", err)
@@ -97,7 +97,7 @@ func GetSceneCountsByModerationStatus(db *sql.DB) (map[ModerationStatus]int, err
 		return counts, nil
 }
 
-func GetApprovedSceneCount(db *sql.DB) (int, error) {
+func GetApprovedSceneCount(db DBTX) (int, error) {
 		var count int
 		err := db.QueryRow(`SELECT COUNT(*) FROM public."Scenes" WHERE "ModerationStatus" = $1`, ModerationStatusApproved).Scan(&count)
 		if err != nil {
@@ -106,7 +106,7 @@ func GetApprovedSceneCount(db *sql.DB) (int, error) {
 		return count, nil
 }
 
-func ListApprovedScenes(db *sql.DB, offset, limit int) ([]Scene, error) {
+func ListApprovedScenes(db DBTX, offset, limit int) ([]Scene, error) {
 		rows, err := db.Query(`SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes" WHERE "ModerationStatus" = $1 ORDER BY "ID" OFFSET $2 LIMIT $3`, ModerationStatusApproved, offset, limit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query approved scenes: %w", err)
@@ -133,6 +133,7 @@ func ListApprovedScenes(db *sql.DB, offset, limit int) ([]Scene, error) {
 		return scenes, nil
 }
 
+// Intentionally using transaction here to ensure that all layers are inserted together, maintaining data integrity.
 func InsertScene(tx *sql.Tx, scene Scene) error {
 		stmt, err := tx.Prepare(`INSERT INTO public."Scenes" ("ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus") VALUES ($1, $2, $3, $4, $5)`)
 		if err != nil {

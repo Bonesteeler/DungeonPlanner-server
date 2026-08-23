@@ -16,7 +16,7 @@ type Tile struct {
 		LayerId  uuid.UUID
 }
 
-func GetTilesByLayerID(db *sql.DB, layerID uuid.UUID) ([]Tile, error) {
+func GetTilesByLayerID(db DBTX, layerID uuid.UUID) ([]Tile, error) {
 		rows, err := db.Query(`SELECT "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" = $1`, layerID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query tiles: %w", err)
@@ -37,7 +37,7 @@ func GetTilesByLayerID(db *sql.DB, layerID uuid.UUID) ([]Tile, error) {
 		return tiles, nil
 }
 
-func GetTilesByLayerIDs(db *sql.DB, layerIDs []uuid.UUID) (map[uuid.UUID][]Tile, error) {
+func GetTilesByLayerIDs(db DBTX, layerIDs []uuid.UUID) (map[uuid.UUID][]Tile, error) {
 		rows, err := db.Query(`SELECT "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" = ANY($1)`, layerIDs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query tiles: %w", err)
@@ -58,9 +58,10 @@ func GetTilesByLayerIDs(db *sql.DB, layerIDs []uuid.UUID) (map[uuid.UUID][]Tile,
 		return tiles, nil
 }
 
+// Intentionally using transaction here to ensure that all tiles are inserted together, maintaining data integrity.
 func InsertTiles(tx *sql.Tx, tiles []Tile) error {
     if len(tiles) == 0 {
-        return nil // No tiles to insert, so we can return early.
+        return nil
     }
     stmt, err := tx.Prepare(`INSERT INTO public."Tiles" ("TileId", "Rotation", "XPos", "YPos", "LayerId") VALUES ($1, $2, $3, $4, $5)`)
     if err != nil {

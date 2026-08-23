@@ -13,7 +13,7 @@ type Layer struct {
 		Height  int
 }
 
-func GetLayersBySceneID(db *sql.DB, sceneID uuid.UUID) ([]Layer, error) {
+func GetLayersBySceneID(db DBTX, sceneID uuid.UUID) ([]Layer, error) {
 		rows, err := db.Query(`SELECT "ID", "SceneId", "Height" FROM public."Layers" WHERE "SceneId" = $1`, sceneID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query layers: %w", err)
@@ -34,6 +34,7 @@ func GetLayersBySceneID(db *sql.DB, sceneID uuid.UUID) ([]Layer, error) {
 		return layers, nil
 }
 
+// Intentionally using transaction here to ensure that all layers are inserted together, maintaining data integrity.
 func InsertLayers(tx *sql.Tx, layers []Layer) error {
 		stmt, err := tx.Prepare(`INSERT INTO public."Layers" ("ID", "SceneId", "Height") VALUES ($1, $2, $3)`)
 		if err != nil {

@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/handler/dto"
-	"DungeonPlannerServer/internal/model"
+	"DungeonPlannerServer/internal/scenes/handler/dto"
+	"DungeonPlannerServer/internal/scenes/model"
 )
 
 type SceneService interface {

@@ -2,8 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"os"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -11,7 +9,7 @@ import (
 
 	"DungeonPlannerServer/internal/db"
 	"DungeonPlannerServer/internal/db/tables"
-	"DungeonPlannerServer/internal/model"
+	"DungeonPlannerServer/internal/scenes/model"
 )
 
 type SceneRepository struct {
@@ -19,11 +17,15 @@ type SceneRepository struct {
 }
 
 func NewSceneRepository(e *echo.Echo) (*SceneRepository, error) {
-    conn, err := _establishConnection(e)
+    password, err := db.GetPasswordSecret()
     if err != nil {
         return nil, err
     }
-    return &SceneRepository{db: conn}, nil
+		connection, err := db.Connect(password, e)
+		if err != nil {
+			return nil, err
+		}
+    return &SceneRepository{db: connection}, nil
 }
 
 func NewSceneRepositoryWithDB(db *sql.DB) *SceneRepository {
@@ -149,12 +151,4 @@ func derefString(s *string) string {
         return ""
     }
     return *s
-}
-
-func _establishConnection(e *echo.Echo) (*sql.DB, error) {
-    var password string
-    if passwordBytes, err := os.ReadFile("/run/secrets/db-password"); err == nil {
-        password = strings.TrimSpace(string(passwordBytes))
-    }
-    return db.Connect(password, e)
 }

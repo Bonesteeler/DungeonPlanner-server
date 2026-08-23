@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"DungeonPlannerServer/internal/auth/model"
 )
 
 var (
@@ -87,7 +89,7 @@ type validatorEntry struct {
 	name          string
 	secret        []byte
 	generate      func(userID, role string) (string, error)
-	validate      func(tokenStr string) (*Claims, error)
+	validate      func(tokenStr string) (*model.Claims, error)
 	crossGenerate func(userID, role string) (string, error)
 }
 
@@ -175,7 +177,7 @@ func TestValidateToken(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to generate RSA key: %v", err)
 				}
-				claims := Claims{
+				claims := model.Claims{
 					UserID: "user-42",
 					Role:   "player",
 					RegisteredClaims: jwt.RegisteredClaims{

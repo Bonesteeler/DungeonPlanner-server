@@ -4,6 +4,8 @@ import (
   "database/sql"
   "fmt"
 	"os"
+	"strings"
+
 	"github.com/labstack/echo/v4"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -13,6 +15,16 @@ import (
 	// Postgres driver
   _ "github.com/lib/pq"
 )
+
+func GetPasswordSecret() (string, error) {
+    var password string
+    passwordBytes, err := os.ReadFile("/run/secrets/db-password")
+    if err != nil {
+        return "", err
+    }
+    password = strings.TrimSpace(string(passwordBytes))
+    return password, nil
+}
 
 func Connect(password string, e *echo.Echo) (*sql.DB, error) {
 		var db *sql.DB 

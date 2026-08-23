@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"DungeonPlannerServer/internal/model"
+	"DungeonPlannerServer/internal/scenes/model"
 )
 
 // --- Mock ---
