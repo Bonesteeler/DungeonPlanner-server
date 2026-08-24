@@ -9,10 +9,6 @@ import (
     "fyne.io/fyne/v2/container"
 
 		"github.com/labstack/echo/v4"
-
-		"DungeonPlannerServer/internal/dashboard"
-		"DungeonPlannerServer/internal/db"
-		"DungeonPlannerServer/internal/db/tables"
 )
 
 func main() {
