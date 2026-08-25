@@ -7,8 +7,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/auth"
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/internal/auth"
+	"dungeonplannerserver/internal/auth/model"
 )
 
 var (

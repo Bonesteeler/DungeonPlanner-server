@@ -1,14 +1,15 @@
 package main
 
 import (
-    "strings"
-		"os"
+	"os"
+	"strings"
 
-    "fyne.io/fyne/v2"
-    "fyne.io/fyne/v2/app"
-    "fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"github.com/labstack/echo/v4"
 
-		"github.com/labstack/echo/v4"
+	"dungeonplannerserver-dashboard/ui"
 )
 
 func main() {
@@ -33,8 +34,8 @@ func main() {
 		}
 
 		tabs := container.NewAppTabs(
-			container.NewTabItem("Main", dashboard.NewIndexTab(scenes)),
-			container.NewTabItem("Moderation Queue", dashboard.NewModerationQueueTab(scenes)),
+			container.NewTabItem("Main", ui.NewIndexTab(scenes)),
+			container.NewTabItem("Moderation Queue", ui.NewModerationQueueTab(scenes)),
 		)
 
 		tabs.SetTabLocation(container.TabLocationTop)

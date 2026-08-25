@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/internal/auth/model"
 
 	"github.com/labstack/echo/v4"
 )

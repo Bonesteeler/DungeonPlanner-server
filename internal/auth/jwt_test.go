@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/internal/auth/model"
 )
 
 var (

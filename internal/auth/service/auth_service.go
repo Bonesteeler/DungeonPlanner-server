@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"DungeonPlannerServer/internal/auth"
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/internal/auth"
+	"dungeonplannerserver/internal/auth/model"
 )
 
 type TokenRepo interface {

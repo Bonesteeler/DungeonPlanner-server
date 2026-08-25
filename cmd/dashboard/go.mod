@@ -1,6 +1,9 @@
-module DungeonPlannerServer-Dashboard
+module dungeonplannerserver-dashboard
 
 go 1.26.0
+
+require dungeonplannerserver v0.0.0
+replace dungeonplannerserver => ../..
 
 require (
 	fyne.io/fyne/v2 v2.8.0

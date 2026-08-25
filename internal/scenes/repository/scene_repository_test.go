@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
-	"DungeonPlannerServer/internal/db/tables"
-	"DungeonPlannerServer/internal/scenes/model"
+	"dungeonplannerserver/internal/db/tables"
+	"dungeonplannerserver/internal/scenes/model"
 )
 
 var sceneColumns = []string{"ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus"}

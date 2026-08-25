@@ -1,4 +1,4 @@
-package dashboard
+package ui
 
 import (
     "fmt"
@@ -6,8 +6,6 @@ import (
     "fyne.io/fyne/v2"
     "fyne.io/fyne/v2/container"
     "fyne.io/fyne/v2/widget"
-
-    "DungeonPlannerServer/internal/db/tables"
 )
 
 func NewIndexTab(scenes []tables.Scene) fyne.CanvasObject {

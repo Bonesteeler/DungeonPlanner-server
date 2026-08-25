@@ -3,8 +3,8 @@ package handler
 import (
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/auth"
-	"DungeonPlannerServer/internal/auth/handler/dto"
+	"dungeonplannerserver/internal/auth"
+	"dungeonplannerserver/internal/auth/handler/dto"
 )
 
 func SetupRoutes(e *echo.Echo, authHandler *AuthHandler, tokenManager *auth.TokenManager) {
