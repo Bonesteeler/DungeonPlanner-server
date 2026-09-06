@@ -1,6 +1,8 @@
 package queries
 
 import (
+	"encoding/json"
+
 	"fmt"
 	"net/http"
 
@@ -15,8 +17,21 @@ func GetAllScenes() []dto.SceneResponse {
 
 	for {
 		response, err := http.Get(fmt.Sprintf("%s/v1/scenes/list/%d", baseUrl, offset))
-		offset += response.PageSize
-		if response.TotalCount <= offset {
+		if err != nil {
+			fmt.Println("Error fetching scenes:", err)
+			break
+		}
+		defer response.Body.Close()
+
+		var result dto.SceneListResponse
+		if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+			fmt.Println("Error decoding response:", err)
+			break
+		}
+
+		scenes = append(scenes, result.Scenes...)
+		offset += result.PageSize
+		if result.TotalCount <= offset {
 			break
 		}
 	}

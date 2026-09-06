@@ -1,37 +1,19 @@
 package main
 
 import (
-	"os"
-	"strings"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"github.com/labstack/echo/v4"
 
 	"dungeonplannerserver-dashboard/ui"
+	"dungeonplannerserver-dashboard/internal"
 )
 
 func main() {
-		e := echo.New()
     a := app.New()
     w := a.NewWindow("Dungeon Planner Dashboard")
 
- 		secretBytes, err := os.ReadFile("secrets/password.txt")
-		if err != nil {
-			e.Logger.Fatal("Error reading secret file:", err)
-		}
-		dbPassword := strings.TrimSpace(string(secretBytes))
- 
-		dbconnection, err := db.Connect(dbPassword, e)
-		if err != nil {
-			e.Logger.Fatal("Database connection failed:", err)
-		}
-
-		scenes, err := tables.GetAllScenes(dbconnection)
-		if err != nil {
-			e.Logger.Fatal("Failed to get scenes:", err)
-		}
+		scenes := queries.GetAllScenes()
 
 		tabs := container.NewAppTabs(
 			container.NewTabItem("Main", ui.NewIndexTab(scenes)),

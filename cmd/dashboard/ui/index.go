@@ -6,23 +6,25 @@ import (
     "fyne.io/fyne/v2"
     "fyne.io/fyne/v2/container"
     "fyne.io/fyne/v2/widget"
+
+    "dungeonplannerserver/dto"
 )
 
-func NewIndexTab(scenes []tables.Scene) fyne.CanvasObject {
+func NewIndexTab(scenes []dto.SceneResponse) fyne.CanvasObject {
     title := widget.NewLabelWithStyle("Scene Statistics", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
     total := len(scenes)
 
-    statusCounts := make(map[tables.ModerationStatus]int)
+    statusCounts := make(map[dto.ModerationStatus]int)
     uniqueTileCount := 0
     for _, s := range scenes {
-        statusCounts[s.ModerationStatus]++
+        statusCounts[0]++
         uniqueTileCount += len(s.UniqueTileIDs)
     }
 
-    pending := statusCounts[tables.ModerationStatusPending]
-    approved := statusCounts[tables.ModerationStatusApproved]
-    rejected := statusCounts[tables.ModerationStatusRejected]
+    pending := statusCounts[dto.ModerationStatusPending]
+    approved := statusCounts[dto.ModerationStatusApproved]
+    rejected := statusCounts[dto.ModerationStatusRejected]
 
     avgTiles := 0.0
     if total > 0 {

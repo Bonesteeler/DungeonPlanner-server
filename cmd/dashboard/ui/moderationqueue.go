@@ -7,9 +7,11 @@ import (
     "fyne.io/fyne/v2"
     "fyne.io/fyne/v2/container"
     "fyne.io/fyne/v2/widget"
+
+    "dungeonplannerserver/dto"
 )
 
-func NewModerationQueueTab(scenes []tables.Scene) fyne.CanvasObject {
+func NewModerationQueueTab(scenes []dto.SceneResponse) fyne.CanvasObject {
     title := widget.NewLabelWithStyle("Moderation Queue", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
     queueSize := widget.NewLabel(fmt.Sprintf("Queue size: %d", len(scenes)))
 
@@ -32,16 +34,16 @@ func NewModerationQueueTab(scenes []tables.Scene) fyne.CanvasObject {
                 case 0:
                     label.SetText("Review")
                 case 1:
-                    label.SetText(scene.ID.String())
+                    label.SetText(scene.ID)
                 case 2:
-                    if scene.Name != nil {
-                        label.SetText(*scene.Name)
+                    if scene.Name != "" {
+                        label.SetText(scene.Name)
                     } else {
                         label.SetText("—")
                     }
                 case 3:
-                    if scene.Author != nil {
-                        label.SetText(*scene.Author)
+                    if scene.Author != "" {
+                        label.SetText(scene.Author)
                     } else {
                         label.SetText("—")
                     }
