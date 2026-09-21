@@ -4,6 +4,6 @@ CREATE TABLE public."Roles" (
 );
 
 INSERT INTO public."Roles" ("ID", "Name") VALUES
-    (1, 'admin'),
+    (1, 'user'),
     (2, 'moderator'),
-    (3, 'user');
+    (3, 'admin');

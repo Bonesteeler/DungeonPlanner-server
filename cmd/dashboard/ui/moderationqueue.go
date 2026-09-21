@@ -1,23 +1,38 @@
 package ui
 
 import (
-    "fmt"
-    "strings"
+	"fmt"
+	"strings"
 
-    "fyne.io/fyne/v2"
-    "fyne.io/fyne/v2/container"
-    "fyne.io/fyne/v2/widget"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 
-    "dungeonplannerserver/dto"
+	"dungeonplannerserver-dashboard/internal/queries"
+	"dungeonplannerserver/dto"
+)
+
+var (
+    moderationScenes    []dto.SceneResponse
+    moderationTable     *widget.Table
+    moderationQueueSize *widget.Label
 )
 
 func NewModerationQueueTab(scenes []dto.SceneResponse) fyne.CanvasObject {
-    title := widget.NewLabelWithStyle("Moderation Queue", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-    queueSize := widget.NewLabel(fmt.Sprintf("Queue size: %d", len(scenes)))
+		queueContent := BuildModerationQueueContent(scenes)
+		return queueContent
+}
 
-    table := widget.NewTable(
+func BuildModerationQueueContent(scenes []dto.SceneResponse) *fyne.Container {
+		fmt.Println("Building moderattion queue with", len(scenes), "scenes")
+    moderationScenes = scenes
+
+    title := widget.NewLabelWithStyle("Moderation Queue", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+    moderationQueueSize = widget.NewLabel(fmt.Sprintf("Queue size: %d", len(moderationScenes)))
+
+    moderationTable = widget.NewTable(
         func() (int, int) {
-            return len(scenes) + 1, 6
+            return len(moderationScenes) + 1, 6
         },
         func() fyne.CanvasObject {
             return widget.NewLabel("")
@@ -29,7 +44,7 @@ func NewModerationQueueTab(scenes []dto.SceneResponse) fyne.CanvasObject {
                 label.TextStyle = fyne.TextStyle{Bold: true}
                 label.SetText(headers[id.Col])
             } else {
-                scene := scenes[id.Row-1]
+                scene := moderationScenes[id.Row-1]
                 switch id.Col {
                 case 0:
                     label.SetText("Review")
@@ -56,16 +71,25 @@ func NewModerationQueueTab(scenes []dto.SceneResponse) fyne.CanvasObject {
         },
     )
 
-    table.SetColumnWidth(0, 80)
-    table.SetColumnWidth(1, 400)
-    table.SetColumnWidth(2, 160)
-    table.SetColumnWidth(3, 200)
-    table.SetColumnWidth(4, 140)
-    table.SetColumnWidth(5, 200)
+    moderationTable.SetColumnWidth(0, 80)
+    moderationTable.SetColumnWidth(1, 400)
+    moderationTable.SetColumnWidth(2, 160)
+    moderationTable.SetColumnWidth(3, 200)
+    moderationTable.SetColumnWidth(4, 140)
+    moderationTable.SetColumnWidth(5, 200)
 
     return container.NewBorder(
-        container.NewVBox(title, queueSize),
+        container.NewVBox(title, moderationQueueSize),
         nil, nil, nil,
-        table,
+        moderationTable,
     )
+}
+
+func RefreshModerationQueueTab() {
+    if moderationTable == nil {
+        return
+    }
+    moderationScenes = queries.GetAllScenes()
+		BuildModerationQueueContent(moderationScenes)
+    moderationTable.Refresh()
 }

@@ -14,11 +14,11 @@ import (
 var indexContent *fyne.Container
 
 func NewIndexTab(scenes []dto.SceneResponse) fyne.CanvasObject {
-    indexContent = buildIndexContent(scenes)
+    indexContent = BuildIndexContent(scenes)
     return indexContent
 }
 
-func buildIndexContent(scenes []dto.SceneResponse) *fyne.Container {
+func BuildIndexContent(scenes []dto.SceneResponse) *fyne.Container {
 		fmt.Println("Building index content with", len(scenes), "scenes")
     title := widget.NewLabelWithStyle("Scene Statistics", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
@@ -71,7 +71,7 @@ func RefreshIndexTab() {
 	if indexContent == nil {
 			return
 	}
-	refreshed := buildIndexContent(scenes)
+	refreshed := BuildIndexContent(scenes)
 	indexContent.Objects = refreshed.Objects
 	indexContent.Refresh()
 }

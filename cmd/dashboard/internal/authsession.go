@@ -11,3 +11,11 @@ func SaveTokenPair(access string, refresh string) {
 	accessToken = access
 	refreshToken = refresh
 }
+
+func GetAccessToken() string {
+	return accessToken
+}
+
+func GetRefreshToken() string {
+	return refreshToken
+}

@@ -31,6 +31,9 @@ func main() {
 			if t.Text == MainTab {
 				ui.RefreshIndexTab()
 			}
+			if t.Text == ModerationQueueTab {
+				ui.RefreshModerationQueueTab()
+			}
 		}
 
     w.SetContent(tabs)
