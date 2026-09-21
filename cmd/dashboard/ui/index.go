@@ -8,9 +8,18 @@ import (
     "fyne.io/fyne/v2/widget"
 
     "dungeonplannerserver/dto"
+    "dungeonplannerserver-dashboard/internal/queries"
 )
 
+var indexContent *fyne.Container
+
 func NewIndexTab(scenes []dto.SceneResponse) fyne.CanvasObject {
+    indexContent = buildIndexContent(scenes)
+    return indexContent
+}
+
+func buildIndexContent(scenes []dto.SceneResponse) *fyne.Container {
+		fmt.Println("Building index content with", len(scenes), "scenes")
     title := widget.NewLabelWithStyle("Scene Statistics", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
     total := len(scenes)
@@ -55,4 +64,14 @@ func NewIndexTab(scenes []dto.SceneResponse) fyne.CanvasObject {
         nil, nil, nil,
         container.NewCenter(card),
     )
+}
+
+func RefreshIndexTab() {
+	scenes := queries.GetAllScenes()
+	if indexContent == nil {
+			return
+	}
+	refreshed := buildIndexContent(scenes)
+	indexContent.Objects = refreshed.Objects
+	indexContent.Refresh()
 }

@@ -1,12 +1,14 @@
 package ui
 
 import (
-	"dungeonplannerserver-dashboard/internal/queries"
 	"fmt"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+
+	"dungeonplannerserver-dashboard/internal"
+	"dungeonplannerserver-dashboard/internal/queries"
 )
 
 func NewLoginUI() fyne.CanvasObject {
@@ -32,6 +34,7 @@ func NewLoginCard() fyne.Widget {
 			return
 		}
 		fmt.Println("Login successful:", response, " err:", err)
+		internal.SaveTokenPair(response.AccessToken, response.RefreshToken)
 	})
 
   loginCard := widget.NewCard("", "", container.NewVBox(

@@ -4,7 +4,10 @@ import (
 
 )
 
-func login(username, password string) (string, error) {
-	val := ""
-	return val, nil
+var accessToken  string
+var refreshToken string
+
+func SaveTokenPair(access string, refresh string) {
+	accessToken = access
+	refreshToken = refresh
 }
