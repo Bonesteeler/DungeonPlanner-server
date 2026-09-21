@@ -4,7 +4,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"dungeonplannerserver/internal/auth"
-	"dungeonplannerserver/internal/auth/handler/dto"
+	"dungeonplannerserver/dto"
 )
 
 func SetupRoutes(e *echo.Echo, authHandler *AuthHandler, tokenManager *auth.TokenManager) {

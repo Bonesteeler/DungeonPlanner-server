@@ -9,14 +9,12 @@ import (
 	"dungeonplannerserver/dto"
 )
 
-const baseUrl = "http://localhost:8080"
-
 func GetAllScenes() []dto.SceneResponse {
 	var scenes []dto.SceneResponse
 	offset := 0
 
 	for {
-		response, err := http.Get(fmt.Sprintf("%s/v1/scenes/list/%d", baseUrl, offset))
+		response, err := http.Get(fmt.Sprintf("%s/v1/scenes/list/%d", APIBaseURL, offset))
 		if err != nil {
 			fmt.Println("Error fetching scenes:", err)
 			break

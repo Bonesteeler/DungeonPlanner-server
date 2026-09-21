@@ -6,7 +6,7 @@ import (
 	"fyne.io/fyne/v2/container"
 
 	"dungeonplannerserver-dashboard/ui"
-	"dungeonplannerserver-dashboard/internal"
+	"dungeonplannerserver-dashboard/internal/queries"
 )
 
 func main() {
@@ -16,6 +16,7 @@ func main() {
 		scenes := queries.GetAllScenes()
 
 		tabs := container.NewAppTabs(
+			container.NewTabItem("Login", ui.NewLoginUI()),
 			container.NewTabItem("Main", ui.NewIndexTab(scenes)),
 			container.NewTabItem("Moderation Queue", ui.NewModerationQueueTab(scenes)),
 		)

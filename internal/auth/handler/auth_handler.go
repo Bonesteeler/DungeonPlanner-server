@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"dungeonplannerserver/internal/auth/handler/dto"
+	"dungeonplannerserver/dto"
 	"dungeonplannerserver/internal/auth/model"
 )
 
