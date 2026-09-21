@@ -1,6 +1,7 @@
 secrets/
 
 .env
+*.exe
 .vs/
 .vscode/
 

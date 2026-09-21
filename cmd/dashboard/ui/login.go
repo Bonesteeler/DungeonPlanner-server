@@ -10,14 +10,23 @@ import (
 )
 
 func NewLoginUI() fyne.CanvasObject {
-	username := widget.NewEntry()
-	username.SetPlaceHolder("Username")
+
+
+	return container.NewVBox(
+		NewLoginCard(),
+		NewSignupCard(),
+	)
+}
+
+func NewLoginCard() fyne.Widget {
+	email := widget.NewEntry()
+	email.SetPlaceHolder("Email")
 
 	password := widget.NewPasswordEntry()
 	password.SetPlaceHolder("Password")
 
 	loginButton := widget.NewButton("Login", func() {
-		response, err := queries.Login(username.Text, password.Text)
+		response, err := queries.Login(email.Text, password.Text)
 		if err != nil {
 			fmt.Println("Login failed:", err)
 			return
@@ -25,13 +34,38 @@ func NewLoginUI() fyne.CanvasObject {
 		fmt.Println("Login successful:", response, " err:", err)
 	})
 
-  card := widget.NewCard("", "", container.NewVBox(
-		username,
+  loginCard := widget.NewCard("", "", container.NewVBox(
+		email,
 		password,
 		loginButton,
   ))
+	return loginCard
+}
 
-	return container.NewVBox(
-		card,
-	)
+func NewSignupCard() fyne.Widget {
+	email := widget.NewEntry()
+	email.SetPlaceHolder("Email")
+
+	username := widget.NewEntry()
+	username.SetPlaceHolder("Username")
+
+	password := widget.NewPasswordEntry()
+	password.SetPlaceHolder("Password")
+
+	signupButton := widget.NewButton("Sign Up", func() {
+		response, err := queries.Signup(email.Text, username.Text, password.Text)
+		if err != nil {
+			fmt.Println("Signup failed:", err)
+			return
+		}
+		fmt.Println("Signup successful:", response, " err:", err)
+	})
+
+  signupCard := widget.NewCard("", "", container.NewVBox(
+		email,
+		username,
+		password,
+		signupButton,
+  ))
+	return signupCard
 }

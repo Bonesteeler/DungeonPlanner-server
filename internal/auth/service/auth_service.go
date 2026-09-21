@@ -21,7 +21,7 @@ type UserRepo interface {
 	IsEmailExists(email string) (bool, error)
 	GetUserIdByEmail(email string) (uuid.UUID, error)
 	GetUserRoleByUserId(id uuid.UUID) (string, error)
-	AddUser(id uuid.UUID, username string, passwordHash string, email string) error
+	AddUser(id uuid.UUID, username string, email string, passwordHash string) error
 }
 
 type AuthService struct {
@@ -95,5 +95,5 @@ func (s *AuthService) UserSignup(username string, password string, email string)
 		return errors.New("email already exists in passwords")
 	}
 	passwordHash := auth.GenerateString(password)
-	return s.users.AddUser(id, username, passwordHash, email)
+	return s.users.AddUser(id, username, email, passwordHash)
 }

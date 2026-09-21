@@ -1,5 +1,5 @@
 package queries
 
 const (
-	APIBaseURL = "http://localhost:8080/"
+	APIBaseURL = "http://localhost:8080"
 )

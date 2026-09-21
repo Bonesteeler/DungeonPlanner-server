@@ -6,6 +6,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy all source files recursively
+COPY dto ./dto/
 COPY internal/ ./internal/
 COPY cmd/server/ ./cmd/server/
 

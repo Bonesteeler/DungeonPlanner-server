@@ -82,7 +82,8 @@ func (r *UserRepository) AddUser(id uuid.UUID, username string, email string, pa
 		tx.Rollback()
 		return err
 	}
-	err = tables.StoreRoleForUser(tx, id, 1)
+	// User role
+	err = tables.StoreRoleForUser(tx, id, 3)
 	if err != nil {
 		tx.Rollback()
 		return err
