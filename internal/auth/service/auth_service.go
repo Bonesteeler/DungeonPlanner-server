@@ -90,15 +90,27 @@ func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, err
 	}, nil
 }
 
-func (s *AuthService) UserSignup(username string, password string, email string) error {
+func (s *AuthService) UserSignup(username string, password string, email string) (model.TokenPair, error) {
 	id := uuid.New()
 	used, err := s.users.IsEmailExists(email)
 	if err != nil {
-		return err
+		return model.TokenPair{}, err
 	}
 	if used {
-		return errors.New("email already exists in passwords")
+		return model.TokenPair{}, errors.New("email already exists in passwords")
 	}
 	passwordHash := auth.GenerateString(password)
-	return s.users.AddUser(id, username, email, passwordHash)
+	if err := s.users.AddUser(id, username, email, passwordHash); err != nil {
+		return model.TokenPair{}, err
+	}
+	role, err := s.users.GetUserRoleByUserId(id)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	tokens, err := s._issueTokenPair(id.String(), role)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	s.refreshTokens.StoreToken(tokens.RefreshToken, id.String())
+	return tokens, nil
 }

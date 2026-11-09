@@ -12,7 +12,7 @@ import (
 type AuthService interface {
 	GenerateTokensFromRefreshToken(refreshToken string) (model.TokenPair, error)
 	GenerateTokensFromLogin(username, password string) (model.TokenPair, error)
-	UserSignup(username string, password string, email string) error
+	UserSignup(username string, password string, email string) (model.TokenPair, error)
 }
 
 type AuthHandler struct {
@@ -47,9 +47,12 @@ func (h *AuthHandler) GenerateTokensFromLogin(context echo.Context, username, pa
 }
 
 func (h *AuthHandler) UserSignup(context echo.Context, username string, password string, email string) error {
-	err := h.authService.UserSignup(username, password, email)
+	tokens, err := h.authService.UserSignup(username, password, email)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, struct{ Error string }{Error: "Internal Server Error"})
 	}
-	return context.JSON(http.StatusOK, struct{ Message string }{Message: "Password stored successfully"})
+	return context.JSON(http.StatusOK, dto.GeneratedTokensResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	})
 }

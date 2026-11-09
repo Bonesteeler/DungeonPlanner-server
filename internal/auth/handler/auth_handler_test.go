@@ -18,7 +18,7 @@ import (
 type mockAuthService struct {
     generateFromRefreshFn func(refreshToken string) (model.TokenPair, error)
     generateFromLoginFn   func(username, password string) (model.TokenPair, error)
-    storePasswordFn func(username string, password string, email string) error
+    storePasswordFn func(username string, password string, email string) (model.TokenPair, error)
 }
 
 func (m *mockAuthService) GenerateTokensFromRefreshToken(refreshToken string) (model.TokenPair, error) {
@@ -29,7 +29,7 @@ func (m *mockAuthService) GenerateTokensFromLogin(username, password string) (mo
     return m.generateFromLoginFn(username, password)
 }
 
-func (m *mockAuthService) UserSignup(username string, password string, email string) error {
+func (m *mockAuthService) UserSignup(username string, password string, email string) (model.TokenPair, error) {
 	return m.storePasswordFn(username, password, email)
 }
 
@@ -150,9 +150,10 @@ func TestGenerateTokensFromLogin_ServiceError_ReturnsUnauthorized(t *testing.T) 
 // --- StorePassword ---
 
 func TestStorePassword_Success(t *testing.T) {
+	expected := model.TokenPair{AccessToken: "access-abc", RefreshToken: "refresh-xyz"}
 	h := NewAuthHandler(&mockAuthService{
-		storePasswordFn: func(username string, password string, email string) error {
-			return nil
+		storePasswordFn: func(username string, password string, email string) (model.TokenPair, error) {
+			return expected, nil
 		},
 	})
 	c, rec := newAuthEchoContext(http.MethodPost, "/auth/store-password")
@@ -162,12 +163,19 @@ func TestStorePassword_Success(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
+	var got dto.GeneratedTokensResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if got.AccessToken != expected.AccessToken || got.RefreshToken != expected.RefreshToken {
+		t.Errorf("tokens = %+v, want %+v", got, expected)
+	}
 }
 
 func TestStorePassword_ServiceError(t *testing.T) {
 	h := NewAuthHandler(&mockAuthService{
-		storePasswordFn: func(username string, password string, email string) error {
-			return errors.New("service error")
+		storePasswordFn: func(username string, password string, email string) (model.TokenPair, error) {
+			return model.TokenPair{}, errors.New("service error")
 		},
 	})
 	c, rec := newAuthEchoContext(http.MethodPost, "/auth/store-password")

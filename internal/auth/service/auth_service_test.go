@@ -146,12 +146,25 @@ func TestStorePasswordHash_Success(t *testing.T) {
 		StorePasswordHashFunc: func(id uuid.UUID, passwordHash string) error {
 			return nil
 		},
+		GetUserRoleByUserIdFunc: func(id uuid.UUID) (string, error) {
+			return "user", nil
+		},
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.UserSignup("testuser", "hashed_password", testEmail)
+	tokens, err := testService.UserSignup("testuser", "hashed_password", testEmail)
 	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if tokens.RefreshToken == "" || tokens.AccessToken == "" {
+		t.Errorf("expected valid token pair, got %v", tokens)
+	}
+	claims, err := testService.tokenManager.ValidateRefreshToken(tokens.RefreshToken)
+	if err != nil {
+		t.Fatalf("expected valid refresh token, got %v", err)
+	}
+	if !testService.refreshTokens.IsTokenPresent(tokens.RefreshToken, claims.UserID) {
+		t.Errorf("expected refresh token to be stored after signup")
 	}
 }
 
@@ -163,7 +176,7 @@ func TestStorePasswordHash_EmailAlreadyExists(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.UserSignup("testuser", "hashed_password", testEmail)
+	_, err := testService.UserSignup("testuser", "hashed_password", testEmail)
 	if err == nil {
 		t.Errorf("expected error for email already exists, got nil")
 	}
@@ -184,7 +197,7 @@ func TestStorePasswordHash_RepoError(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.UserSignup("username", "hashed_password", testEmail)
+	_, err := testService.UserSignup("username", "hashed_password", testEmail)
 	if err == nil {
 		t.Errorf("expected error for repository failure, got nil")
 	}
