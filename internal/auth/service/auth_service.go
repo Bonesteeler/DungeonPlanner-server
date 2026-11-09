@@ -67,7 +67,12 @@ func (s *AuthService) GenerateTokensFromLogin(email, password string) (model.Tok
 	if err != nil {
 		return model.TokenPair{}, err
 	}
-	return s._issueTokenPair(userID.String(), role)
+	tokens, err := s._issueTokenPair(userID.String(), role)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	s.refreshTokens.StoreToken(tokens.RefreshToken, userID.String())
+	return tokens, nil
 }
 
 func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, error) {

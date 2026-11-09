@@ -92,12 +92,13 @@ func TestGenerateTokensFromLogin_Success(t *testing.T) {
 	expectedEmail := "test@email.com"
 	expectedPassword := "password"
 	expectedPasswordHash := auth.GenerateString(expectedPassword)
+	expectedUserID := uuid.New()
 	mockRepo := &mockUserRepo{
 		GetPasswordHashByUserIdFunc: func(id uuid.UUID) (string, error) {
 			return expectedPasswordHash, nil
 		},
 		GetUserIdByEmailFunc: func(email string) (uuid.UUID, error) {
-			return uuid.New(), nil
+			return expectedUserID, nil
 		},
 		GetUserRoleByUserIdFunc: func(id uuid.UUID) (string, error) {
 			return "user", nil
@@ -110,6 +111,9 @@ func TestGenerateTokensFromLogin_Success(t *testing.T) {
 	}
 	if newTokens.RefreshToken == "" || newTokens.AccessToken == "" {
 		t.Errorf("expected valid token pair, got %v", newTokens)
+	}
+	if !testService.refreshTokens.IsTokenPresent(newTokens.RefreshToken, expectedUserID.String()) {
+		t.Errorf("expected refresh token to be stored after login")
 	}
 }
 
