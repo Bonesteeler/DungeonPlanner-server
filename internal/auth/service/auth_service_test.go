@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"DungeonPlannerServer/internal/auth"
-	repo "DungeonPlannerServer/internal/auth/repository"
+	"dungeonplannerserver/internal/auth"
+	repo "dungeonplannerserver/internal/auth/repository"
 )
 
 type mockUserRepo struct {

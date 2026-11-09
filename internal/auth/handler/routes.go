@@ -3,8 +3,8 @@ package handler
 import (
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/auth"
-	"DungeonPlannerServer/internal/auth/handler/dto"
+	"dungeonplannerserver/internal/auth"
+	"dungeonplannerserver/dto"
 )
 
 func SetupRoutes(e *echo.Echo, authHandler *AuthHandler, tokenManager *auth.TokenManager) {
@@ -22,7 +22,7 @@ func SetupRoutes(e *echo.Echo, authHandler *AuthHandler, tokenManager *auth.Toke
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(400, struct{ Error string }{Error: "Invalid request"})
 		}
-		return authHandler.GenerateTokensFromLogin(c, req.Username, req.Password)
+		return authHandler.GenerateTokensFromLogin(c, req.Email, req.Password)
 	})
 
 	root.POST("/signup", func(c echo.Context) error {

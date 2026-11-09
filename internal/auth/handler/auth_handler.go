@@ -5,8 +5,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/auth/handler/dto"
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/dto"
+	"dungeonplannerserver/internal/auth/model"
 )
 
 type AuthService interface {
@@ -37,6 +37,7 @@ func (h *AuthHandler) GenerateTokensFromRefreshToken(context echo.Context, refre
 func (h *AuthHandler) GenerateTokensFromLogin(context echo.Context, username, password string) error {
 	tokens, err := h.authService.GenerateTokensFromLogin(username, password)
 	if err != nil {
+		context.Echo().Logger.Error(err)
 		return context.JSON(http.StatusUnauthorized, struct{ Error string }{Error: "Unauthorized"})
 	}
 	return context.JSON(http.StatusOK, dto.GeneratedTokensResponse{

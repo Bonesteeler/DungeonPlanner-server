@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"DungeonPlannerServer/internal/db"
-	"DungeonPlannerServer/internal/db/tables"
-	"DungeonPlannerServer/internal/scenes/model"
+	"dungeonplannerserver/internal/db"
+	"dungeonplannerserver/internal/db/tables"
+	"dungeonplannerserver/internal/scenes/model"
 )
 
 type SceneRepository struct {

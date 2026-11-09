@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"DungeonPlannerServer/internal/auth"
+	"dungeonplannerserver/internal/auth"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -13,6 +13,7 @@ const prefix = "Bearer "
 func CheckAccessToken(tokenManager *auth.TokenManager) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			c.Logger().Info("Checking access token")
 			accessToken := c.Request().Header.Get(authorizationKey)
 			if accessToken == "" || !strings.HasPrefix(accessToken, prefix) {
 				return echo.ErrUnauthorized

@@ -6,8 +6,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/db"
-	"DungeonPlannerServer/internal/db/tables"
+	"dungeonplannerserver/internal/db"
+	"dungeonplannerserver/internal/db/tables"
 )
 
 type UserRepository struct {

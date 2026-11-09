@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/golang-jwt/jwt/v5"
 
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/internal/auth/model"
 )
 
 const fifteenMinutes = 15 * time.Minute

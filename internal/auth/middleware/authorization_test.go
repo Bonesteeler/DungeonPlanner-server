@@ -7,7 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/internal/auth/model"
 )
 
 func newAuthorizationEchoContext() (echo.Context, *httptest.ResponseRecorder) {

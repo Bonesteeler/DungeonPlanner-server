@@ -1,4 +1,4 @@
-package dashboard
+package ui
 
 import (
     "fmt"
@@ -7,24 +7,33 @@ import (
     "fyne.io/fyne/v2/container"
     "fyne.io/fyne/v2/widget"
 
-    "DungeonPlannerServer/internal/db/tables"
+    "dungeonplannerserver/dto"
+    "dungeonplannerserver-dashboard/internal/queries"
 )
 
-func NewIndexTab(scenes []tables.Scene) fyne.CanvasObject {
+var indexContent *fyne.Container
+
+func NewIndexTab(scenes []dto.SceneResponse) fyne.CanvasObject {
+    indexContent = BuildIndexContent(scenes)
+    return indexContent
+}
+
+func BuildIndexContent(scenes []dto.SceneResponse) *fyne.Container {
+		fmt.Println("Building index content with", len(scenes), "scenes")
     title := widget.NewLabelWithStyle("Scene Statistics", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
     total := len(scenes)
 
-    statusCounts := make(map[tables.ModerationStatus]int)
+    statusCounts := make(map[dto.ModerationStatus]int)
     uniqueTileCount := 0
     for _, s := range scenes {
-        statusCounts[s.ModerationStatus]++
+        statusCounts[0]++
         uniqueTileCount += len(s.UniqueTileIDs)
     }
 
-    pending := statusCounts[tables.ModerationStatusPending]
-    approved := statusCounts[tables.ModerationStatusApproved]
-    rejected := statusCounts[tables.ModerationStatusRejected]
+    pending := statusCounts[dto.ModerationStatusPending]
+    approved := statusCounts[dto.ModerationStatusApproved]
+    rejected := statusCounts[dto.ModerationStatusRejected]
 
     avgTiles := 0.0
     if total > 0 {
@@ -55,4 +64,14 @@ func NewIndexTab(scenes []tables.Scene) fyne.CanvasObject {
         nil, nil, nil,
         container.NewCenter(card),
     )
+}
+
+func RefreshIndexTab() {
+	scenes := queries.GetAllScenes()
+	if indexContent == nil {
+			return
+	}
+	refreshed := BuildIndexContent(scenes)
+	indexContent.Objects = refreshed.Objects
+	indexContent.Refresh()
 }

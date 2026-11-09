@@ -3,13 +3,13 @@ package main
 import (
 	"os"
 
-	"DungeonPlannerServer/internal/auth"
-	authHandlerPck "DungeonPlannerServer/internal/auth/handler" 
-	authServicePck "DungeonPlannerServer/internal/auth/service"
-	authRepoPck "DungeonPlannerServer/internal/auth/repository"
-	sceneHandlerPck "DungeonPlannerServer/internal/scenes/handler"
-	sceneRepoPck "DungeonPlannerServer/internal/scenes/repository"
-	sceneServicePck "DungeonPlannerServer/internal/scenes/service"
+	"dungeonplannerserver/internal/auth"
+	authHandlerPck "dungeonplannerserver/internal/auth/handler" 
+	authServicePck "dungeonplannerserver/internal/auth/service"
+	authRepoPck "dungeonplannerserver/internal/auth/repository"
+	sceneHandlerPck "dungeonplannerserver/internal/scenes/handler"
+	sceneRepoPck "dungeonplannerserver/internal/scenes/repository"
+	sceneServicePck "dungeonplannerserver/internal/scenes/service"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"

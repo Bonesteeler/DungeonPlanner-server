@@ -9,8 +9,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/auth/handler/dto"
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/dto"
+	"dungeonplannerserver/internal/auth/model"
 )
 
 // --- Mock ---

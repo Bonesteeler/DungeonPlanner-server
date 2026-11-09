@@ -6,19 +6,19 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"DungeonPlannerServer/internal/auth"
-	"DungeonPlannerServer/internal/auth/middleware"
-	"DungeonPlannerServer/internal/scenes/handler/dto"
+	"dungeonplannerserver/dto"
+	"dungeonplannerserver/internal/auth"
+	"dungeonplannerserver/internal/auth/middleware"
 )
 
 func SetupRoutes(e *echo.Echo, sceneHandler *SceneHandler, tokenManager *auth.TokenManager) {
 	home := e.Group("/")
-	home.Use(middleware.CheckAccessToken(tokenManager))
-	home.Use(middleware.CheckRole(middleware.User))
 	home.GET("", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, struct{ Message string }{Message: "Welcome to the Dungeon Planner API"})
 	})
 	scenes := e.Group("v1/scenes")
+	scenes.Use(middleware.CheckAccessToken(tokenManager))
+	scenes.Use(middleware.CheckRole(middleware.User))
 
 	scenes.GET("/", sceneHandler.GetScenes)
 	scenes.GET("/list/:start", func(c echo.Context) error {
@@ -39,5 +39,5 @@ func SetupRoutes(e *echo.Echo, sceneHandler *SceneHandler, tokenManager *auth.To
 			return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid request"})
 		}
 		return sceneHandler.AddScene(c, s)
-	}, middleware.CheckAccessToken(tokenManager))
+	})
 }

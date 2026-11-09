@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"DungeonPlannerServer/internal/auth/model"
+	"dungeonplannerserver/internal/auth/model"
 
 	"github.com/labstack/echo/v4"
 )
@@ -9,9 +9,9 @@ import (
 type Role string
 
 const (
-	Admin Role = "Admin"
-	Moderator Role = "Moderator"
-	User  Role = "User"
+	Admin Role = "admin"
+	Moderator Role = "moderator"
+	User  Role = "user"
 )
 
 var roleRank = map[Role]int{

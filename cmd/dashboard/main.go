@@ -1,47 +1,40 @@
 package main
 
 import (
-    "strings"
-		"os"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
 
-    "fyne.io/fyne/v2"
-    "fyne.io/fyne/v2/app"
-    "fyne.io/fyne/v2/container"
-
-		"github.com/labstack/echo/v4"
-
-		"DungeonPlannerServer/internal/dashboard"
-		"DungeonPlannerServer/internal/db"
-		"DungeonPlannerServer/internal/db/tables"
+	"dungeonplannerserver-dashboard/internal/queries"
+	"dungeonplannerserver-dashboard/ui"
 )
 
+const LoginTab = "Login"
+const MainTab = "Main"
+const ModerationQueueTab = "Moderation Queue"
+
 func main() {
-		e := echo.New()
     a := app.New()
     w := a.NewWindow("Dungeon Planner Dashboard")
 
- 		secretBytes, err := os.ReadFile("secrets/password.txt")
-		if err != nil {
-			e.Logger.Fatal("Error reading secret file:", err)
-		}
-		dbPassword := strings.TrimSpace(string(secretBytes))
- 
-		dbconnection, err := db.Connect(dbPassword, e)
-		if err != nil {
-			e.Logger.Fatal("Database connection failed:", err)
-		}
-
-		scenes, err := tables.GetAllScenes(dbconnection)
-		if err != nil {
-			e.Logger.Fatal("Failed to get scenes:", err)
-		}
+		scenes := queries.GetAllScenes()
 
 		tabs := container.NewAppTabs(
-			container.NewTabItem("Main", dashboard.NewIndexTab(scenes)),
-			container.NewTabItem("Moderation Queue", dashboard.NewModerationQueueTab(scenes)),
+			container.NewTabItem(LoginTab, ui.NewLoginUI()),
+			container.NewTabItem(MainTab, ui.NewIndexTab(scenes)),
+			container.NewTabItem(ModerationQueueTab, ui.NewModerationQueueTab(scenes)),
 		)
 
 		tabs.SetTabLocation(container.TabLocationTop)
+
+		tabs.OnSelected = func(t *container.TabItem) {
+			if t.Text == MainTab {
+				ui.RefreshIndexTab()
+			}
+			if t.Text == ModerationQueueTab {
+				ui.RefreshModerationQueueTab()
+			}
+		}
 
     w.SetContent(tabs)
     w.Resize(fyne.NewSize(1200, 500))

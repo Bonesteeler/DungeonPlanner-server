@@ -3,7 +3,7 @@ package service
 import (
 	"github.com/google/uuid"
 
-	"DungeonPlannerServer/internal/scenes/model"
+	"dungeonplannerserver/internal/scenes/model"
 )
 
 type SceneRepo interface {

@@ -15,7 +15,7 @@ const getPasswordHashByUserIdQuery = `SELECT "PasswordHash" FROM public."Passwor
 const storePasswordHashQuery = `INSERT INTO public."Passwords" ("ID", "PasswordHash") VALUES ($1, $2)`
 const isEmailExistsQuery = `SELECT EXISTS(SELECT 1 FROM public."Users" WHERE "Email" = $1)`
 const addUserQuery = `INSERT INTO public."Users" ("ID", "Username", "Email") VALUES ($1, $2, $3)`
-const storeRoleForUserQuery = `INSERT INTO public."UserRoles" ("UserID", "Role") VALUES ($1, $2)`
+const storeRoleForUserQuery = `INSERT INTO public."UserRoles" ("UserID", "RoleID") VALUES ($1, $2)`
 
 func getRepositoryWithMockDB(t *testing.T) (*UserRepository, sqlmock.Sqlmock) {
 	t.Helper()

@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
-	"DungeonPlannerServer/internal/db/tables"
-	"DungeonPlannerServer/internal/scenes/model"
+	"dungeonplannerserver/dto"
+	"dungeonplannerserver/internal/scenes/model"
 )
 
 var sceneColumns = []string{"ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus"}
@@ -46,7 +46,7 @@ func TestGetApprovedSceneCount_ReturnsCount(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
     mock.ExpectQuery(`SELECT COUNT(*) FROM public."Scenes" WHERE "ModerationStatus" = $1`).
-        WithArgs(tables.ModerationStatusApproved).
+        WithArgs(dto.ModerationStatusApproved).
         WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(7))
 
     count, err := repo.GetApprovedSceneCount()
@@ -65,7 +65,7 @@ func TestGetApprovedSceneCount_DBError(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
     mock.ExpectQuery(`SELECT COUNT(*) FROM public."Scenes" WHERE "ModerationStatus" = $1`).
-        WithArgs(tables.ModerationStatusApproved).
+        WithArgs(dto.ModerationStatusApproved).
         WillReturnError(errors.New("db error"))
 
     _, err := repo.GetApprovedSceneCount()
@@ -86,10 +86,10 @@ func TestListApprovedScenes_ReturnsScenes(t *testing.T) {
 
     id := uuid.New()
     rows := sqlmock.NewRows(sceneColumns).
-        AddRow(id, strPtr("Test Scene"), strPtr("Author"), pqArrayValue(t, []string{"tile1", "tile2"}), tables.ModerationStatusApproved)
+        AddRow(id, strPtr("Test Scene"), strPtr("Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusApproved)
 
     mock.ExpectQuery(listApprovedQuery).
-        WithArgs(tables.ModerationStatusApproved, 0, 20).
+        WithArgs(dto.ModerationStatusApproved, 0, 20).
         WillReturnRows(rows)
 
     scenes, err := repo.ListApprovedScenes(0)
@@ -120,7 +120,7 @@ func TestListApprovedScenes_Empty(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
     mock.ExpectQuery(listApprovedQuery).
-        WithArgs(tables.ModerationStatusApproved, 0, 20).
+        WithArgs(dto.ModerationStatusApproved, 0, 20).
         WillReturnRows(sqlmock.NewRows(sceneColumns))
 
     scenes, err := repo.ListApprovedScenes(0)
@@ -140,7 +140,7 @@ func TestListApprovedScenes_AppliesOffsetPagination(t *testing.T) {
 
     // Expect offset=40, limit=20 (third page)
     mock.ExpectQuery(listApprovedQuery).
-        WithArgs(tables.ModerationStatusApproved, 40, 20).
+        WithArgs(dto.ModerationStatusApproved, 40, 20).
         WillReturnRows(sqlmock.NewRows(sceneColumns))
 
     _, err := repo.ListApprovedScenes(40)
@@ -183,7 +183,7 @@ func TestGetSceneByID_Found(t *testing.T) {
     mock.ExpectQuery(getSceneByIDQuery).
         WithArgs(sceneID).
         WillReturnRows(sqlmock.NewRows(sceneColumns).
-            AddRow(sceneID, strPtr("My Scene"), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), tables.ModerationStatusApproved))
+            AddRow(sceneID, strPtr("My Scene"), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), dto.ModerationStatusApproved))
 
     mock.ExpectQuery(getLayersBySceneIDQuery).
         WithArgs(sceneID).
@@ -245,7 +245,7 @@ func TestGetSceneByID_NoLayers(t *testing.T) {
     mock.ExpectQuery(getSceneByIDQuery).
         WithArgs(id).
         WillReturnRows(sqlmock.NewRows(sceneColumns).
-            AddRow(id, strPtr("Scene With No Layers"), strPtr("Author"), pqArrayValue(t, []string{}), tables.ModerationStatusApproved))
+            AddRow(id, strPtr("Scene With No Layers"), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
     mock.ExpectQuery(getLayersBySceneIDQuery).
         WithArgs(id).
         WillReturnRows(sqlmock.NewRows(layerColumns))
@@ -289,7 +289,7 @@ func TestGetSceneByID_LayersQueryError(t *testing.T) {
     mock.ExpectQuery(getSceneByIDQuery).
         WithArgs(id).
         WillReturnRows(sqlmock.NewRows(sceneColumns).
-            AddRow(id, strPtr("Scene"), strPtr("Author"), pqArrayValue(t, []string{}), tables.ModerationStatusApproved))
+            AddRow(id, strPtr("Scene"), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
 
     mock.ExpectQuery(getLayersBySceneIDQuery).
         WithArgs(id).
@@ -326,7 +326,7 @@ func TestAddScene_Success(t *testing.T) {
     mock.ExpectBegin()
     mock.ExpectPrepare(insertSceneQuery).
         ExpectExec().
-        WithArgs(sqlmock.AnyArg(), "New Scene", "Author", sqlmock.AnyArg(), tables.ModerationStatusPending).
+        WithArgs(sqlmock.AnyArg(), "New Scene", "Author", sqlmock.AnyArg(), dto.ModerationStatusPending).
         WillReturnResult(sqlmock.NewResult(1, 1))
     mock.ExpectPrepare(insertLayerQuery).
         ExpectExec().
