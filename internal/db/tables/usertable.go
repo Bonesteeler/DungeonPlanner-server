@@ -22,6 +22,16 @@ func GetUserIdByEmail(db DBTX, email string) (uuid.UUID, error) {
 	return userId, nil
 }
 
+func GetUserProfileById(db DBTX, id uuid.UUID) (string, string, error) {
+	var username string
+	var email string
+	err := db.QueryRow(`SELECT "Username", "Email" FROM public."Users" WHERE "ID" = $1`, id).Scan(&username, &email)
+	if err != nil {
+		return "", "", err
+	}
+	return username, email, nil
+}
+
 func AddUser(db DBTX, id uuid.UUID, username string, email string) error {
 	stmt, err := db.Prepare(`INSERT INTO public."Users" ("ID", "Username", "Email") VALUES ($1, $2, $3)`)
 	if err != nil {

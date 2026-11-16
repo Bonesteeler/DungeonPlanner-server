@@ -19,3 +19,8 @@ type SignupRequest struct {
 	Password string `json:"password"`
 	Username string `json:"username"`
 }
+
+type ProfileResponse struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+}

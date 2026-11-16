@@ -46,6 +46,10 @@ func (r *UserRepository) GetUserIdByEmail(email string) (uuid.UUID, error) {
 	return tables.GetUserIdByEmail(r.db, email)
 }
 
+func (r *UserRepository) GetUserProfileById(id uuid.UUID) (string, string, error) {
+	return tables.GetUserProfileById(r.db, id)
+}
+
 func (r *UserRepository) GetUserRoleByUserId(id uuid.UUID) (string, error) {
 	roleId, err := tables.GetRoleForUser(r.db, id)
 	if err != nil {

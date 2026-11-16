@@ -22,6 +22,7 @@ type UserRepo interface {
 	GetUserIdByEmail(email string) (uuid.UUID, error)
 	GetUserRoleByUserId(id uuid.UUID) (string, error)
 	AddUser(id uuid.UUID, username string, email string, passwordHash string) error
+	GetUserProfileById(id uuid.UUID) (string, string, error)
 }
 
 type AuthService struct {
@@ -88,6 +89,18 @@ func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, err
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *AuthService) GetUserProfile(userID string) (model.Profile, error) {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return model.Profile{}, err
+	}
+	username, email, err := s.users.GetUserProfileById(id)
+	if err != nil {
+		return model.Profile{}, err
+	}
+	return model.Profile{Username: username, Email: email}, nil
 }
 
 func (s *AuthService) UserSignup(username string, password string, email string) (model.TokenPair, error) {
