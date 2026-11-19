@@ -17,6 +17,7 @@ type mockUserRepo struct {
 	GetUserIdByEmailFunc func(email string) (uuid.UUID, error)
 	GetUserRoleByUserIdFunc func(id uuid.UUID) (string, error)
 	AddUserFunc func(id uuid.UUID, username string, passwordHash string, email string) error
+	GetUserProfileByIdFunc func(id uuid.UUID) (string, string, error)
 }
 
 func (m *mockUserRepo) GetPasswordHashByUserId(id uuid.UUID) (string, error) {
@@ -41,6 +42,10 @@ func (m *mockUserRepo) GetUserRoleByUserId(id uuid.UUID) (string, error) {
 
 func (m *mockUserRepo) AddUser(id uuid.UUID, username string, passwordHash string, email string) error {
 	return m.AddUserFunc(id, username, passwordHash, email)
+}
+
+func (m *mockUserRepo) GetUserProfileById(id uuid.UUID) (string, string, error) {
+	return m.GetUserProfileByIdFunc(id)
 }
 
 func CreateTestAuthService(passwordRepo UserRepo) *AuthService {
@@ -92,12 +97,13 @@ func TestGenerateTokensFromLogin_Success(t *testing.T) {
 	expectedEmail := "test@email.com"
 	expectedPassword := "password"
 	expectedPasswordHash := auth.GenerateString(expectedPassword)
+	expectedUserID := uuid.New()
 	mockRepo := &mockUserRepo{
 		GetPasswordHashByUserIdFunc: func(id uuid.UUID) (string, error) {
 			return expectedPasswordHash, nil
 		},
 		GetUserIdByEmailFunc: func(email string) (uuid.UUID, error) {
-			return uuid.New(), nil
+			return expectedUserID, nil
 		},
 		GetUserRoleByUserIdFunc: func(id uuid.UUID) (string, error) {
 			return "user", nil
@@ -110,6 +116,9 @@ func TestGenerateTokensFromLogin_Success(t *testing.T) {
 	}
 	if newTokens.RefreshToken == "" || newTokens.AccessToken == "" {
 		t.Errorf("expected valid token pair, got %v", newTokens)
+	}
+	if !testService.refreshTokens.IsTokenPresent(newTokens.RefreshToken, expectedUserID.String()) {
+		t.Errorf("expected refresh token to be stored after login")
 	}
 }
 
@@ -142,12 +151,25 @@ func TestStorePasswordHash_Success(t *testing.T) {
 		StorePasswordHashFunc: func(id uuid.UUID, passwordHash string) error {
 			return nil
 		},
+		GetUserRoleByUserIdFunc: func(id uuid.UUID) (string, error) {
+			return "user", nil
+		},
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.UserSignup("testuser", "hashed_password", testEmail)
+	tokens, err := testService.UserSignup("testuser", "hashed_password", testEmail)
 	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if tokens.RefreshToken == "" || tokens.AccessToken == "" {
+		t.Errorf("expected valid token pair, got %v", tokens)
+	}
+	claims, err := testService.tokenManager.ValidateRefreshToken(tokens.RefreshToken)
+	if err != nil {
+		t.Fatalf("expected valid refresh token, got %v", err)
+	}
+	if !testService.refreshTokens.IsTokenPresent(tokens.RefreshToken, claims.UserID) {
+		t.Errorf("expected refresh token to be stored after signup")
 	}
 }
 
@@ -159,7 +181,7 @@ func TestStorePasswordHash_EmailAlreadyExists(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.UserSignup("testuser", "hashed_password", testEmail)
+	_, err := testService.UserSignup("testuser", "hashed_password", testEmail)
 	if err == nil {
 		t.Errorf("expected error for email already exists, got nil")
 	}
@@ -180,7 +202,54 @@ func TestStorePasswordHash_RepoError(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	err := testService.UserSignup("username", "hashed_password", testEmail)
+	_, err := testService.UserSignup("username", "hashed_password", testEmail)
+	if err == nil {
+		t.Errorf("expected error for repository failure, got nil")
+	}
+	if err.Error() != databaseError {
+		t.Errorf("expected error message '%v', got %v", databaseError, err.Error())
+	}
+}
+func TestGetUserProfile_Success(t *testing.T) {
+	expectedUserID := uuid.New()
+	mockRepo := &mockUserRepo{
+		GetUserProfileByIdFunc: func(id uuid.UUID) (string, string, error) {
+			if id != expectedUserID {
+				t.Errorf("expected user id %v, got %v", expectedUserID, id)
+			}
+			return "testuser", "test@email.com", nil
+		},
+	}
+	testService := CreateTestAuthService(mockRepo)
+	profile, err := testService.GetUserProfile(expectedUserID.String())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if profile.Username != "testuser" {
+		t.Errorf("expected username 'testuser', got %v", profile.Username)
+	}
+	if profile.Email != "test@email.com" {
+		t.Errorf("expected email 'test@email.com', got %v", profile.Email)
+	}
+}
+
+func TestGetUserProfile_InvalidUserID(t *testing.T) {
+	testService := CreateTestAuthService(&mockUserRepo{})
+	_, err := testService.GetUserProfile("not-a-uuid")
+	if err == nil {
+		t.Errorf("expected error for invalid user id, got nil")
+	}
+}
+
+func TestGetUserProfile_RepoError(t *testing.T) {
+	const databaseError = "database error"
+	mockRepo := &mockUserRepo{
+		GetUserProfileByIdFunc: func(id uuid.UUID) (string, string, error) {
+			return "", "", errors.New(databaseError)
+		},
+	}
+	testService := CreateTestAuthService(mockRepo)
+	_, err := testService.GetUserProfile(uuid.New().String())
 	if err == nil {
 		t.Errorf("expected error for repository failure, got nil")
 	}

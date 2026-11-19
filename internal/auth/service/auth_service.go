@@ -22,6 +22,7 @@ type UserRepo interface {
 	GetUserIdByEmail(email string) (uuid.UUID, error)
 	GetUserRoleByUserId(id uuid.UUID) (string, error)
 	AddUser(id uuid.UUID, username string, email string, passwordHash string) error
+	GetUserProfileById(id uuid.UUID) (string, string, error)
 }
 
 type AuthService struct {
@@ -67,7 +68,12 @@ func (s *AuthService) GenerateTokensFromLogin(email, password string) (model.Tok
 	if err != nil {
 		return model.TokenPair{}, err
 	}
-	return s._issueTokenPair(userID.String(), role)
+	tokens, err := s._issueTokenPair(userID.String(), role)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	s.refreshTokens.StoreToken(tokens.RefreshToken, userID.String())
+	return tokens, nil
 }
 
 func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, error) {
@@ -85,15 +91,39 @@ func (s *AuthService) _issueTokenPair(userID, role string) (model.TokenPair, err
 	}, nil
 }
 
-func (s *AuthService) UserSignup(username string, password string, email string) error {
+func (s *AuthService) GetUserProfile(userID string) (model.Profile, error) {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return model.Profile{}, err
+	}
+	username, email, err := s.users.GetUserProfileById(id)
+	if err != nil {
+		return model.Profile{}, err
+	}
+	return model.Profile{Username: username, Email: email}, nil
+}
+
+func (s *AuthService) UserSignup(username string, password string, email string) (model.TokenPair, error) {
 	id := uuid.New()
 	used, err := s.users.IsEmailExists(email)
 	if err != nil {
-		return err
+		return model.TokenPair{}, err
 	}
 	if used {
-		return errors.New("email already exists in passwords")
+		return model.TokenPair{}, errors.New("email already exists in passwords")
 	}
 	passwordHash := auth.GenerateString(password)
-	return s.users.AddUser(id, username, email, passwordHash)
+	if err := s.users.AddUser(id, username, email, passwordHash); err != nil {
+		return model.TokenPair{}, err
+	}
+	role, err := s.users.GetUserRoleByUserId(id)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	tokens, err := s._issueTokenPair(id.String(), role)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	s.refreshTokens.StoreToken(tokens.RefreshToken, id.String())
+	return tokens, nil
 }

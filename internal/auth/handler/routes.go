@@ -4,6 +4,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"dungeonplannerserver/internal/auth"
+	"dungeonplannerserver/internal/auth/middleware"
 	"dungeonplannerserver/dto"
 )
 
@@ -32,4 +33,6 @@ func SetupRoutes(e *echo.Echo, authHandler *AuthHandler, tokenManager *auth.Toke
 		}
 		return authHandler.UserSignup(c, req.Username, req.Password, req.Email)
 	})
+
+	root.GET("/profile", authHandler.GetUserProfile, middleware.CheckAccessToken(tokenManager))
 }
