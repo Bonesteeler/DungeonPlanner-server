@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"dungeonplannerserver/dto"
+	authmodel "dungeonplannerserver/internal/auth/model"
 	"dungeonplannerserver/internal/scenes/model"
 )
 
@@ -128,7 +129,8 @@ func TestAddScene_ReturnsSuccess(t *testing.T) {
 	})
 
 	c, rec := newEchoContext(http.MethodPost, "/scenes/add")
-	if err := h.AddScene(c, dto.AddSceneRequest{Name: "New Scene", Author: "Dave"}); err != nil {
+	c.Set("claims", &authmodel.Claims{UserID: uuid.New().String()})
+	if err := h.AddScene(c, dto.AddSceneRequest{Name: "New Scene"}); err != nil {
 		t.Fatalf("AddScene() returned error: %v", err)
 	}
 
@@ -153,18 +155,58 @@ func TestAddScene_ForwardsRequestToService(t *testing.T) {
 		addSceneFn: func(scene model.Scene) error { captured = scene; return nil },
 	})
 
+	authorID := uuid.New()
 	req := dto.AddSceneRequest{
 		Name:   "Fortress",
-		Author: "Eve",
 		Layers: []dto.LayerRequest{{Tiles: []dto.TileRequest{{TileID: "t1", Rotation: 90, XPos: 1, YPos: 2}}}},
 	}
 	c, _ := newEchoContext(http.MethodPost, "/scenes/add")
+	c.Set("claims", &authmodel.Claims{UserID: authorID.String()})
 	h.AddScene(c, req)
 
-	if captured.Name != "Fortress" || captured.Author != "Eve" {
-		t.Errorf("captured scene = %+v, want Name=Fortress Author=Eve", captured)
+	if captured.Name != "Fortress" || captured.AuthorID != authorID {
+		t.Errorf("captured scene = %+v, want Name=Fortress AuthorID=%v", captured, authorID)
 	}
 	if len(captured.Layers) != 1 || len(captured.Layers[0].Tiles) != 1 || captured.Layers[0].Tiles[0].TileID != "t1" {
 		t.Errorf("captured layers = %+v, want 1 layer with 1 tile TileID=t1", captured.Layers)
+	}
+}
+
+func TestAddScene_MissingClaims_ReturnsUnauthorized(t *testing.T) {
+	called := false
+	h := NewSceneHandler(&mockSceneService{
+		addSceneFn: func(scene model.Scene) error { called = true; return nil },
+	})
+
+	c, rec := newEchoContext(http.MethodPost, "/scenes/add")
+	if err := h.AddScene(c, dto.AddSceneRequest{Name: "New Scene"}); err != nil {
+		t.Fatalf("AddScene() returned error: %v", err)
+	}
+
+	if called {
+		t.Error("expected AddScene service method not to be called")
+	}
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestAddScene_InvalidUserIDInClaims_ReturnsBadRequest(t *testing.T) {
+	called := false
+	h := NewSceneHandler(&mockSceneService{
+		addSceneFn: func(scene model.Scene) error { called = true; return nil },
+	})
+
+	c, rec := newEchoContext(http.MethodPost, "/scenes/add")
+	c.Set("claims", &authmodel.Claims{UserID: "not-a-uuid"})
+	if err := h.AddScene(c, dto.AddSceneRequest{Name: "New Scene"}); err != nil {
+		t.Fatalf("AddScene() returned error: %v", err)
+	}
+
+	if called {
+		t.Error("expected AddScene service method not to be called")
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }

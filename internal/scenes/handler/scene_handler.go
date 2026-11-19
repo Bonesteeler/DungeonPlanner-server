@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"dungeonplannerserver/dto"
+	"dungeonplannerserver/internal/auth/middleware"
 	"dungeonplannerserver/internal/scenes/model"
 )
 
@@ -66,7 +67,6 @@ func requestToScene(r dto.AddSceneRequest) model.Scene {
 	}
 	return model.Scene{
 		Name:   r.Name,
-		Author: r.Author,
 		Layers: layers,
 	}
 }
@@ -103,8 +103,17 @@ func (h *SceneHandler) GetSceneByID(c echo.Context, id string) error {
 }
 
 func (h *SceneHandler) AddScene(c echo.Context, s dto.AddSceneRequest) error {
-	err := h.service.AddScene(requestToScene(s))
+	claims := middleware.GetClaims(c)
+	if claims == nil {
+		return c.JSON(http.StatusUnauthorized, struct{ Error string }{Error: "Missing authentication claims"})
+	}
+	authorID, err := uuid.Parse(claims.UserID)
 	if err != nil {
+		return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid user ID in token"})
+	}
+	scene := requestToScene(s)
+	scene.AuthorID = authorID
+	if err := h.service.AddScene(scene); err != nil {
 		return c.JSON(http.StatusInternalServerError, struct{ Error string }{Error: "Failed to add scene"})
 	}
 	return c.JSON(http.StatusOK, struct{ Status string }{Status: "Scene added successfully"})

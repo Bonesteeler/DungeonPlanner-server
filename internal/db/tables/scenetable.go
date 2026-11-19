@@ -13,14 +13,15 @@ import (
 type Scene struct {
     ID               uuid.UUID
     Name             *string
-    Author           *string
+    Author           *uuid.UUID
+    AuthorName       *string
     UniqueTileIDs    []string
 		Layers 					 []Layer
     ModerationStatus dto.ModerationStatus
 }
 
 func GetAllScenes(db DBTX) ([]Scene, error) {
-    rows, err := db.Query(`SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes"`)
+    rows, err := db.Query(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author"`)
     if err != nil {
         return nil, fmt.Errorf("failed to query scenes: %w", err)
     }
@@ -33,6 +34,7 @@ func GetAllScenes(db DBTX) ([]Scene, error) {
             &s.ID,
             &s.Name,
             &s.Author,
+            &s.AuthorName,
             pq.Array(&s.UniqueTileIDs),
             &s.ModerationStatus,
         )
@@ -50,13 +52,14 @@ func GetAllScenes(db DBTX) ([]Scene, error) {
 }
 
 func GetSceneByID(db DBTX, id uuid.UUID) (*Scene, error) {
-    row := db.QueryRow(`SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes" WHERE "ID" = $1`, id)
+    row := db.QueryRow(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ID" = $1`, id)
 
     var s Scene
     err := row.Scan(
         &s.ID,
         &s.Name,
         &s.Author,
+        &s.AuthorName,
         pq.Array(&s.UniqueTileIDs),
         &s.ModerationStatus,
     )
@@ -101,7 +104,7 @@ func GetApprovedSceneCount(db DBTX) (int, error) {
 }
 
 func ListApprovedScenes(db DBTX, offset, limit int) ([]Scene, error) {
-		rows, err := db.Query(`SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes" WHERE "ModerationStatus" = $1 ORDER BY "ID" OFFSET $2 LIMIT $3`, dto.ModerationStatusApproved, offset, limit)
+		rows, err := db.Query(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ModerationStatus" = $1 ORDER BY s."ID" OFFSET $2 LIMIT $3`, dto.ModerationStatusApproved, offset, limit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query approved scenes: %w", err)
 		}
@@ -113,6 +116,7 @@ func ListApprovedScenes(db DBTX, offset, limit int) ([]Scene, error) {
 				&s.ID,
 				&s.Name,
 				&s.Author,
+				&s.AuthorName,
 				pq.Array(&s.UniqueTileIDs),
 				&s.ModerationStatus,
 			)

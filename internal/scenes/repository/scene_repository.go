@@ -46,7 +46,8 @@ func (r *SceneRepository) ListApprovedScenes(offset int) ([]model.Scene, error) 
         response = append(response, model.Scene{
             ID:            s.ID.String(),
             Name:          derefString(s.Name),
-            Author:        derefString(s.Author),
+            AuthorID:      derefUUID(s.Author),
+            Author:        derefString(s.AuthorName),
             UniqueTileIDs: s.UniqueTileIDs,
         })
     }
@@ -65,7 +66,8 @@ func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
     response := &model.Scene{
         ID:            scene.ID.String(),
         Name:          derefString(scene.Name),
-        Author:        derefString(scene.Author),
+        AuthorID:      derefUUID(scene.Author),
+        Author:        derefString(scene.AuthorName),
         UniqueTileIDs: scene.UniqueTileIDs,
     }
     for _, layer := range layers {
@@ -104,7 +106,7 @@ func (r *SceneRepository) AddScene(request model.Scene) error {
     scene := tables.Scene{
         ID:            sceneID,
         Name:          &request.Name,
-        Author:        &request.Author,
+        Author:        &request.AuthorID,
         UniqueTileIDs: uniqueTileIDs,
     }
     layers := make([]tables.Layer, 0, len(request.Layers))
@@ -151,4 +153,11 @@ func derefString(s *string) string {
         return ""
     }
     return *s
+}
+
+func derefUUID(u *uuid.UUID) uuid.UUID {
+    if u == nil {
+        return uuid.Nil
+    }
+    return *u
 }

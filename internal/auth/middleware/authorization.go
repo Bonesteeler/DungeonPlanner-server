@@ -20,6 +20,14 @@ var roleRank = map[Role]int{
 	User:  1,
 }
 
+func GetClaims(c echo.Context) *model.Claims {
+	claims, success := c.Get(claimsKey).(*model.Claims)
+	if !success {
+		return nil
+	}
+	return claims
+}
+
 func CheckRole(requiredRole Role) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
