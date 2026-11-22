@@ -102,7 +102,10 @@ func (r *SceneRepository) AddScene(request model.Scene) error {
     for tileID := range uniqueTileIDMap {
         uniqueTileIDs = append(uniqueTileIDs, tileID)
     }
-    sceneID := uuid.New()
+    sceneID, err := uuid.Parse(request.ID)
+    if err != nil {
+        return err
+    }
     scene := tables.Scene{
         ID:            sceneID,
         Name:          &request.Name,

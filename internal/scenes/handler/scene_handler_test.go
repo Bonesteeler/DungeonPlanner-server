@@ -125,12 +125,13 @@ func TestGetSceneByID_InvalidUUID_ReturnsBadRequest(t *testing.T) {
 func TestAddScene_ReturnsSuccess(t *testing.T) {
 	called := false
 	h := NewSceneHandler(&mockSceneService{
-		addSceneFn: func(scene model.Scene) error { called = true; return nil },
+		getSceneByIDFn: func(id uuid.UUID) *model.Scene { return nil },
+		addSceneFn:     func(scene model.Scene) error { called = true; return nil },
 	})
 
 	c, rec := newEchoContext(http.MethodPost, "/scenes/add")
 	c.Set("claims", &authmodel.Claims{UserID: uuid.New().String()})
-	if err := h.AddScene(c, dto.AddSceneRequest{Name: "New Scene"}); err != nil {
+	if err := h.AddScene(c, dto.AddSceneRequest{ID: uuid.New().String(), Name: "New Scene"}); err != nil {
 		t.Fatalf("AddScene() returned error: %v", err)
 	}
 
@@ -152,11 +153,14 @@ func TestAddScene_ReturnsSuccess(t *testing.T) {
 func TestAddScene_ForwardsRequestToService(t *testing.T) {
 	var captured model.Scene
 	h := NewSceneHandler(&mockSceneService{
-		addSceneFn: func(scene model.Scene) error { captured = scene; return nil },
+		getSceneByIDFn: func(id uuid.UUID) *model.Scene { return nil },
+		addSceneFn:     func(scene model.Scene) error { captured = scene; return nil },
 	})
 
+	sceneID := uuid.New()
 	authorID := uuid.New()
 	req := dto.AddSceneRequest{
+		ID:     sceneID.String(),
 		Name:   "Fortress",
 		Layers: []dto.LayerRequest{{Tiles: []dto.TileRequest{{TileID: "t1", Rotation: 90, XPos: 1, YPos: 2}}}},
 	}
@@ -164,6 +168,9 @@ func TestAddScene_ForwardsRequestToService(t *testing.T) {
 	c.Set("claims", &authmodel.Claims{UserID: authorID.String()})
 	h.AddScene(c, req)
 
+	if captured.ID != sceneID.String() {
+		t.Errorf("captured scene ID = %s, want %s", captured.ID, sceneID.String())
+	}
 	if captured.Name != "Fortress" || captured.AuthorID != authorID {
 		t.Errorf("captured scene = %+v, want Name=Fortress AuthorID=%v", captured, authorID)
 	}
@@ -208,5 +215,64 @@ func TestAddScene_InvalidUserIDInClaims_ReturnsBadRequest(t *testing.T) {
 	}
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestAddScene_InvalidSceneID_ReturnsBadRequest(t *testing.T) {
+	called := false
+	h := NewSceneHandler(&mockSceneService{
+		getSceneByIDFn: func(id uuid.UUID) *model.Scene { return nil },
+		addSceneFn:     func(scene model.Scene) error { called = true; return nil },
+	})
+
+	c, rec := newEchoContext(http.MethodPost, "/scenes/add")
+	c.Set("claims", &authmodel.Claims{UserID: uuid.New().String()})
+	if err := h.AddScene(c, dto.AddSceneRequest{ID: "not-a-uuid", Name: "New Scene"}); err != nil {
+		t.Fatalf("AddScene() returned error: %v", err)
+	}
+
+	if called {
+		t.Error("expected AddScene service method not to be called")
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	var got struct{ Error string }
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if got.Error != "Invalid UUID format" {
+		t.Errorf("error message = %q, want %q", got.Error, "Invalid UUID format")
+	}
+}
+
+func TestAddScene_DuplicateID_ReturnsConflict(t *testing.T) {
+	called := false
+	sceneID := uuid.New()
+	h := NewSceneHandler(&mockSceneService{
+		getSceneByIDFn: func(id uuid.UUID) *model.Scene {
+			return &model.Scene{ID: sceneID.String(), Name: "Existing Scene"}
+		},
+		addSceneFn: func(scene model.Scene) error { called = true; return nil },
+	})
+
+	c, rec := newEchoContext(http.MethodPost, "/scenes/add")
+	c.Set("claims", &authmodel.Claims{UserID: uuid.New().String()})
+	if err := h.AddScene(c, dto.AddSceneRequest{ID: sceneID.String(), Name: "New Scene"}); err != nil {
+		t.Fatalf("AddScene() returned error: %v", err)
+	}
+
+	if called {
+		t.Error("expected AddScene service method not to be called")
+	}
+	if rec.Code != http.StatusConflict {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+	var got struct{ Error string }
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if got.Error != "Scene with this ID already exists" {
+		t.Errorf("error message = %q, want %q", got.Error, "Scene with this ID already exists")
 	}
 }

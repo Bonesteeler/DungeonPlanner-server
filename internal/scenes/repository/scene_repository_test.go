@@ -316,8 +316,10 @@ const insertTileQuery = `INSERT INTO public."Tiles" ("TileId", "Rotation", "XPos
 func TestAddScene_Success(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
+    sceneID := uuid.New()
     authorID := uuid.New()
     request := model.Scene{
+        ID:       sceneID.String(),
         Name:     "New Scene",
         AuthorID: authorID,
         Layers: []model.Layer{
@@ -330,7 +332,7 @@ func TestAddScene_Success(t *testing.T) {
     mock.ExpectBegin()
     mock.ExpectPrepare(insertSceneQuery).
         ExpectExec().
-        WithArgs(sqlmock.AnyArg(), "New Scene", authorID, sqlmock.AnyArg(), dto.ModerationStatusPending).
+        WithArgs(sceneID, "New Scene", authorID, sqlmock.AnyArg(), dto.ModerationStatusPending).
         WillReturnResult(sqlmock.NewResult(1, 1))
     mock.ExpectPrepare(insertLayerQuery).
         ExpectExec().
@@ -354,6 +356,7 @@ func TestAddScene_NoLayers_SkipsLayerAndTileInsert(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
     request := model.Scene{
+        ID:       uuid.New().String(),
         Name:     "Scene No Layers",
         AuthorID: uuid.New(),
         Layers:   []model.Layer{},
@@ -381,7 +384,18 @@ func TestAddScene_BeginError(t *testing.T) {
 
     mock.ExpectBegin().WillReturnError(errors.New("begin failed"))
 
-    if err := repo.AddScene(model.Scene{Name: "S", AuthorID: uuid.New()}); err == nil {
+    if err := repo.AddScene(model.Scene{ID: uuid.New().String(), Name: "S", AuthorID: uuid.New()}); err == nil {
+        t.Fatal("expected error, got nil")
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Error(err)
+    }
+}
+
+func TestAddScene_InvalidID_ReturnsError(t *testing.T) {
+    repo, mock := getRepositoryWithMockDB(t)
+
+    if err := repo.AddScene(model.Scene{ID: "not-a-uuid", Name: "S", AuthorID: uuid.New()}); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -398,7 +412,7 @@ func TestAddScene_InsertSceneError_RollsBack(t *testing.T) {
         WillReturnError(errors.New("insert scene failed"))
     mock.ExpectRollback()
 
-    if err := repo.AddScene(model.Scene{Name: "S", AuthorID: uuid.New(), Layers: []model.Layer{}}); err == nil {
+    if err := repo.AddScene(model.Scene{ID: uuid.New().String(), Name: "S", AuthorID: uuid.New(), Layers: []model.Layer{}}); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -410,6 +424,7 @@ func TestAddScene_InsertTilesError_RollsBack(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
     request := model.Scene{
+        ID:       uuid.New().String(),
         Name:     "S",
         AuthorID: uuid.New(),
         Layers: []model.Layer{
