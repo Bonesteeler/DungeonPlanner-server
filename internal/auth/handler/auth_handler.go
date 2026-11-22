@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 
 	"dungeonplannerserver/dto"
 	"dungeonplannerserver/internal/auth/model"
+	authService "dungeonplannerserver/internal/auth/service"
 )
 
 type AuthService interface {
@@ -50,6 +52,9 @@ func (h *AuthHandler) GenerateTokensFromLogin(context echo.Context, username, pa
 func (h *AuthHandler) UserSignup(context echo.Context, username string, password string, email string) error {
 	tokens, err := h.authService.UserSignup(username, password, email)
 	if err != nil {
+		if errors.Is(err, authService.ErrInvalidPassword) {
+			return context.JSON(http.StatusBadRequest, struct{ Error string }{Error: authService.PasswordPolicyMessage})
+		}
 		return context.JSON(http.StatusInternalServerError, struct{ Error string }{Error: "Internal Server Error"})
 	}
 	return context.JSON(http.StatusOK, dto.GeneratedTokensResponse{

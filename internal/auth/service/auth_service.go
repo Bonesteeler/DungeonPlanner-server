@@ -27,8 +27,8 @@ type UserRepo interface {
 
 type AuthService struct {
 	refreshTokens TokenRepo
-	tokenManager *auth.TokenManager
-	users UserRepo
+	tokenManager  *auth.TokenManager
+	users         UserRepo
 }
 
 func NewAuthService(tokenRepo TokenRepo, tokenManager *auth.TokenManager, userRepo UserRepo) *AuthService {
@@ -53,6 +53,9 @@ func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model
 }
 
 func (s *AuthService) GenerateTokensFromLogin(email, password string) (model.TokenPair, error) {
+	if err := validatePassword(password); err != nil {
+		return model.TokenPair{}, err
+	}
 	userID, err := s.users.GetUserIdByEmail(email)
 	if err != nil {
 		return model.TokenPair{}, err
@@ -104,6 +107,9 @@ func (s *AuthService) GetUserProfile(userID string) (model.Profile, error) {
 }
 
 func (s *AuthService) UserSignup(username string, password string, email string) (model.TokenPair, error) {
+	if err := validatePassword(password); err != nil {
+		return model.TokenPair{}, err
+	}
 	id := uuid.New()
 	used, err := s.users.IsEmailExists(email)
 	if err != nil {

@@ -3,13 +3,14 @@ package handler
 import (
 	"github.com/labstack/echo/v4"
 
+	"dungeonplannerserver/dto"
 	"dungeonplannerserver/internal/auth"
 	"dungeonplannerserver/internal/auth/middleware"
-	"dungeonplannerserver/dto"
 )
 
 func SetupRoutes(e *echo.Echo, authHandler *AuthHandler, tokenManager *auth.TokenManager) {
 	root := e.Group("/auth")
+	root.Use(middleware.NewRateLimiter())
 	root.POST("/refresh", func(c echo.Context) error {
 		var req dto.RefreshTokenRequest
 		if err := c.Bind(&req); err != nil {

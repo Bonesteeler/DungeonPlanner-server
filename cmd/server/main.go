@@ -4,9 +4,9 @@ import (
 	"os"
 
 	"dungeonplannerserver/internal/auth"
-	authHandlerPck "dungeonplannerserver/internal/auth/handler" 
-	authServicePck "dungeonplannerserver/internal/auth/service"
+	authHandlerPck "dungeonplannerserver/internal/auth/handler"
 	authRepoPck "dungeonplannerserver/internal/auth/repository"
+	authServicePck "dungeonplannerserver/internal/auth/service"
 	sceneHandlerPck "dungeonplannerserver/internal/scenes/handler"
 	sceneRepoPck "dungeonplannerserver/internal/scenes/repository"
 	sceneServicePck "dungeonplannerserver/internal/scenes/service"
@@ -18,6 +18,7 @@ import (
 func main() {
 
 	e := echo.New()
+	e.IPExtractor = echo.ExtractIPFromXFFHeader()
 
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
