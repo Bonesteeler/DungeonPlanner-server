@@ -12,7 +12,7 @@ import (
 	"dungeonplannerserver/internal/scenes/model"
 )
 
-var sceneColumns = []string{"ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus"}
+var sceneColumns = []string{"ID", "Name", "Author", "Username", "UniqueTileIDs", "ModerationStatus"}
 var layerColumns = []string{"ID", "SceneId", "Height"}
 var tileColumns = []string{"TileId", "Rotation", "XPos", "YPos", "LayerId"}
 
@@ -30,6 +30,8 @@ func getRepositoryWithMockDB(t *testing.T) (*SceneRepository, sqlmock.Sqlmock) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func uuidPtr(u uuid.UUID) *uuid.UUID { return &u }
 
 func pqArrayValue(t *testing.T, ss []string) interface{} {
     t.Helper()
@@ -79,14 +81,15 @@ func TestGetApprovedSceneCount_DBError(t *testing.T) {
 
 // ---- ListApprovedScenes ----
 
-const listApprovedQuery = `SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes" WHERE "ModerationStatus" = $1 ORDER BY "ID" OFFSET $2 LIMIT $3`
+const listApprovedQuery = `SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ModerationStatus" = $1 ORDER BY s."ID" OFFSET $2 LIMIT $3`
 
 func TestListApprovedScenes_ReturnsScenes(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
     id := uuid.New()
+    authorID := uuid.New()
     rows := sqlmock.NewRows(sceneColumns).
-        AddRow(id, strPtr("Test Scene"), strPtr("Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusApproved)
+        AddRow(id, strPtr("Test Scene"), uuidPtr(authorID), strPtr("Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusApproved)
 
     mock.ExpectQuery(listApprovedQuery).
         WithArgs(dto.ModerationStatusApproved, 0, 20).
@@ -169,7 +172,7 @@ func TestListApprovedScenes_DBError(t *testing.T) {
 
 // ---- GetSceneByID ----
 
-const getSceneByIDQuery = `SELECT "ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus" FROM public."Scenes" WHERE "ID" = $1`
+const getSceneByIDQuery = `SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ID" = $1`
 const getLayersBySceneIDQuery = `SELECT "ID", "SceneId", "Height" FROM public."Layers" WHERE "SceneId" = $1`
 const getTilesByLayerIDQuery = `SELECT "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" = $1`
 
@@ -183,7 +186,7 @@ func TestGetSceneByID_Found(t *testing.T) {
     mock.ExpectQuery(getSceneByIDQuery).
         WithArgs(sceneID).
         WillReturnRows(sqlmock.NewRows(sceneColumns).
-            AddRow(sceneID, strPtr("My Scene"), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), dto.ModerationStatusApproved))
+            AddRow(sceneID, strPtr("My Scene"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), dto.ModerationStatusApproved))
 
     mock.ExpectQuery(getLayersBySceneIDQuery).
         WithArgs(sceneID).
@@ -245,7 +248,7 @@ func TestGetSceneByID_NoLayers(t *testing.T) {
     mock.ExpectQuery(getSceneByIDQuery).
         WithArgs(id).
         WillReturnRows(sqlmock.NewRows(sceneColumns).
-            AddRow(id, strPtr("Scene With No Layers"), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
+            AddRow(id, strPtr("Scene With No Layers"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
     mock.ExpectQuery(getLayersBySceneIDQuery).
         WithArgs(id).
         WillReturnRows(sqlmock.NewRows(layerColumns))
@@ -289,7 +292,7 @@ func TestGetSceneByID_LayersQueryError(t *testing.T) {
     mock.ExpectQuery(getSceneByIDQuery).
         WithArgs(id).
         WillReturnRows(sqlmock.NewRows(sceneColumns).
-            AddRow(id, strPtr("Scene"), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
+            AddRow(id, strPtr("Scene"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
 
     mock.ExpectQuery(getLayersBySceneIDQuery).
         WithArgs(id).
@@ -313,9 +316,12 @@ const insertTileQuery = `INSERT INTO public."Tiles" ("TileId", "Rotation", "XPos
 func TestAddScene_Success(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
+    sceneID := uuid.New()
+    authorID := uuid.New()
     request := model.Scene{
-        Name:   "New Scene",
-        Author: "Author",
+        ID:       sceneID.String(),
+        Name:     "New Scene",
+        AuthorID: authorID,
         Layers: []model.Layer{
             {Tiles: []model.Tile{
                 {TileID: "tile-1", Rotation: 90, XPos: 3, YPos: 5},
@@ -326,7 +332,7 @@ func TestAddScene_Success(t *testing.T) {
     mock.ExpectBegin()
     mock.ExpectPrepare(insertSceneQuery).
         ExpectExec().
-        WithArgs(sqlmock.AnyArg(), "New Scene", "Author", sqlmock.AnyArg(), dto.ModerationStatusPending).
+        WithArgs(sceneID, "New Scene", authorID, sqlmock.AnyArg(), dto.ModerationStatusPending).
         WillReturnResult(sqlmock.NewResult(1, 1))
     mock.ExpectPrepare(insertLayerQuery).
         ExpectExec().
@@ -350,9 +356,10 @@ func TestAddScene_NoLayers_SkipsLayerAndTileInsert(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
     request := model.Scene{
-        Name:   "Scene No Layers",
-        Author: "Author",
-        Layers: []model.Layer{},
+        ID:       uuid.New().String(),
+        Name:     "Scene No Layers",
+        AuthorID: uuid.New(),
+        Layers:   []model.Layer{},
     }
 
     mock.ExpectBegin()
@@ -377,7 +384,18 @@ func TestAddScene_BeginError(t *testing.T) {
 
     mock.ExpectBegin().WillReturnError(errors.New("begin failed"))
 
-    if err := repo.AddScene(model.Scene{Name: "S", Author: "A"}); err == nil {
+    if err := repo.AddScene(model.Scene{ID: uuid.New().String(), Name: "S", AuthorID: uuid.New()}); err == nil {
+        t.Fatal("expected error, got nil")
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Error(err)
+    }
+}
+
+func TestAddScene_InvalidID_ReturnsError(t *testing.T) {
+    repo, mock := getRepositoryWithMockDB(t)
+
+    if err := repo.AddScene(model.Scene{ID: "not-a-uuid", Name: "S", AuthorID: uuid.New()}); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -394,7 +412,7 @@ func TestAddScene_InsertSceneError_RollsBack(t *testing.T) {
         WillReturnError(errors.New("insert scene failed"))
     mock.ExpectRollback()
 
-    if err := repo.AddScene(model.Scene{Name: "S", Author: "A", Layers: []model.Layer{}}); err == nil {
+    if err := repo.AddScene(model.Scene{ID: uuid.New().String(), Name: "S", AuthorID: uuid.New(), Layers: []model.Layer{}}); err == nil {
         t.Fatal("expected error, got nil")
     }
     if err := mock.ExpectationsWereMet(); err != nil {
@@ -406,8 +424,9 @@ func TestAddScene_InsertTilesError_RollsBack(t *testing.T) {
     repo, mock := getRepositoryWithMockDB(t)
 
     request := model.Scene{
-        Name:   "S",
-        Author: "A",
+        ID:       uuid.New().String(),
+        Name:     "S",
+        AuthorID: uuid.New(),
         Layers: []model.Layer{
             {Tiles: []model.Tile{{TileID: "tile-1"}}},
         },

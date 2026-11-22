@@ -25,8 +25,8 @@ type LayerResponse struct {
 }
 
 type AddSceneRequest struct {
+	ID     string         `json:"id"`
 	Name   string         `json:"name"`
-	Author string         `json:"author"`
 	Layers []LayerRequest `json:"layers"`
 }
 

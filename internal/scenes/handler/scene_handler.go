@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"dungeonplannerserver/dto"
+	"dungeonplannerserver/internal/auth/middleware"
 	"dungeonplannerserver/internal/scenes/model"
 )
 
@@ -65,8 +66,8 @@ func requestToScene(r dto.AddSceneRequest) model.Scene {
 		layers = append(layers, model.Layer{Height: l.Height, Tiles: tiles})
 	}
 	return model.Scene{
+		ID:     r.ID,
 		Name:   r.Name,
-		Author: r.Author,
 		Layers: layers,
 	}
 }
@@ -103,8 +104,24 @@ func (h *SceneHandler) GetSceneByID(c echo.Context, id string) error {
 }
 
 func (h *SceneHandler) AddScene(c echo.Context, s dto.AddSceneRequest) error {
-	err := h.service.AddScene(requestToScene(s))
+	claims := middleware.GetClaims(c)
+	if claims == nil {
+		return c.JSON(http.StatusUnauthorized, struct{ Error string }{Error: "Missing authentication claims"})
+	}
+	authorID, err := uuid.Parse(claims.UserID)
 	if err != nil {
+		return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid user ID in token"})
+	}
+	sceneID, err := uuid.Parse(s.ID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid UUID format"})
+	}
+	if existing := h.service.GetSceneByID(sceneID); existing != nil {
+		return c.JSON(http.StatusConflict, struct{ Error string }{Error: "Scene with this ID already exists"})
+	}
+	scene := requestToScene(s)
+	scene.AuthorID = authorID
+	if err := h.service.AddScene(scene); err != nil {
 		return c.JSON(http.StatusInternalServerError, struct{ Error string }{Error: "Failed to add scene"})
 	}
 	return c.JSON(http.StatusOK, struct{ Status string }{Status: "Scene added successfully"})
