@@ -141,4 +141,14 @@ func TestAuthRoutes_IntegratedSignupLoginAndProfile(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("weak signup status = %d, want 400", rec.Code)
 	}
+
+	logoutBody := `{"refresh_token":"` + signupTokens.RefreshToken + `"}`
+	rec = performIntegratedJSONRequest(t, e, "/auth/logout", logoutBody, "")
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("logout status = %d, want 204", rec.Code)
+	}
+	rec = performIntegratedJSONRequest(t, e, "/auth/refresh", logoutBody, "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("refresh after logout status = %d, want 401", rec.Code)
+	}
 }

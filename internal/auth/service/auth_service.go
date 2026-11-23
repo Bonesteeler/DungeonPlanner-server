@@ -43,13 +43,33 @@ func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model
 	if !s.refreshTokens.IsTokenPresent(refreshToken, claims.UserID) {
 		return model.TokenPair{}, errors.New("Unauthorized")
 	}
-	newTokenPair, err := s._issueTokenPair(claims.UserID, claims.Role)
+	userID, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	role, err := s.users.GetUserRoleByUserId(userID)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	newTokenPair, err := s._issueTokenPair(claims.UserID, role)
 	if err != nil {
 		return model.TokenPair{}, err
 	}
 	s.refreshTokens.RemoveToken(refreshToken)
 	s.refreshTokens.StoreToken(newTokenPair.RefreshToken, claims.UserID)
 	return newTokenPair, nil
+}
+
+func (s *AuthService) Logout(refreshToken string) error {
+	claims, err := s.tokenManager.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		return err
+	}
+	if !s.refreshTokens.IsTokenPresent(refreshToken, claims.UserID) {
+		return errors.New("Unauthorized")
+	}
+	s.refreshTokens.RemoveToken(refreshToken)
+	return nil
 }
 
 func (s *AuthService) GenerateTokensFromLogin(email, password string) (model.TokenPair, error) {

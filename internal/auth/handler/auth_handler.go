@@ -16,6 +16,7 @@ type AuthService interface {
 	GenerateTokensFromLogin(username, password string) (model.TokenPair, error)
 	UserSignup(username string, password string, email string) (model.TokenPair, error)
 	GetUserProfile(userID string) (model.Profile, error)
+	Logout(refreshToken string) error
 }
 
 type AuthHandler struct {
@@ -35,6 +36,13 @@ func (h *AuthHandler) GenerateTokensFromRefreshToken(context echo.Context, refre
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
 	})
+}
+
+func (h *AuthHandler) Logout(context echo.Context, refreshToken string) error {
+	if err := h.authService.Logout(refreshToken); err != nil {
+		return context.JSON(http.StatusUnauthorized, struct{ Error string }{Error: "Unauthorized"})
+	}
+	return context.NoContent(http.StatusNoContent)
 }
 
 func (h *AuthHandler) GenerateTokensFromLogin(context echo.Context, username, password string) error {
