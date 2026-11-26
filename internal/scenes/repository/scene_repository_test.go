@@ -191,7 +191,7 @@ func TestGetSceneByID_Found(t *testing.T) {
 	mock.ExpectQuery(getLayersBySceneIDQuery).
 		WithArgs(sceneID).
 		WillReturnRows(sqlmock.NewRows(layerColumns).
-			AddRow(layerID, sceneID, 0))
+			AddRow(layerID, sceneID, 50))
 
 	mock.ExpectQuery(getTilesByLayerIDQuery).
 		WithArgs(layerID).
@@ -210,6 +210,9 @@ func TestGetSceneByID_Found(t *testing.T) {
 	}
 	if len(scene.Layers) != 1 {
 		t.Fatalf("expected 1 layer, got %d", len(scene.Layers))
+	}
+	if scene.Layers[0].Height != 50 {
+		t.Errorf("expected layer height 50, got %d", scene.Layers[0].Height)
 	}
 	if len(scene.Layers[0].Tiles) != 1 {
 		t.Errorf("expected 1 tile, got %d", len(scene.Layers[0].Tiles))

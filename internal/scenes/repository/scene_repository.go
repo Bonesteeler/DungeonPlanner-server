@@ -106,7 +106,8 @@ func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
 			})
 		}
 		response.Layers = append(response.Layers, model.Layer{
-			Tiles: tileResponses,
+			Height: layer.Height,
+			Tiles:  tileResponses,
 		})
 	}
 	return response, nil
