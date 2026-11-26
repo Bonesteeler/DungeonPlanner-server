@@ -89,7 +89,7 @@ func TestListApprovedScenes_ReturnsScenes(t *testing.T) {
 	id := uuid.New()
 	authorID := uuid.New()
 	rows := sqlmock.NewRows(sceneColumns).
-		AddRow(id, strPtr("Test Scene"), uuidPtr(authorID), strPtr("Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusApproved)
+		AddRow(id, "Test Scene", uuidPtr(authorID), strPtr("Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusApproved)
 
 	mock.ExpectQuery(listApprovedQuery).
 		WithArgs(dto.ModerationStatusApproved, 0, 20).
@@ -186,7 +186,7 @@ func TestGetSceneByID_Found(t *testing.T) {
 	mock.ExpectQuery(getSceneByIDQuery).
 		WithArgs(sceneID).
 		WillReturnRows(sqlmock.NewRows(sceneColumns).
-			AddRow(sceneID, strPtr("My Scene"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), dto.ModerationStatusApproved))
+			AddRow(sceneID, "My Scene", uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), dto.ModerationStatusApproved))
 
 	mock.ExpectQuery(getLayersBySceneIDQuery).
 		WithArgs(sceneID).
@@ -251,7 +251,7 @@ func TestGetSceneByID_NoLayers(t *testing.T) {
 	mock.ExpectQuery(getSceneByIDQuery).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows(sceneColumns).
-			AddRow(id, strPtr("Scene With No Layers"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
+			AddRow(id, "Scene With No Layers", uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
 	mock.ExpectQuery(getLayersBySceneIDQuery).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows(layerColumns))
@@ -295,7 +295,7 @@ func TestGetSceneByID_LayersQueryError(t *testing.T) {
 	mock.ExpectQuery(getSceneByIDQuery).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows(sceneColumns).
-			AddRow(id, strPtr("Scene"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
+			AddRow(id, "Scene", uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
 
 	mock.ExpectQuery(getLayersBySceneIDQuery).
 		WithArgs(id).
@@ -483,7 +483,7 @@ func TestListPendingScenes_ReturnsScenes(t *testing.T) {
 	id := uuid.New()
 	authorID := uuid.New()
 	rows := sqlmock.NewRows(sceneColumns).
-		AddRow(id, strPtr("Pending Scene"), uuidPtr(authorID), strPtr("Pending Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusPending)
+		AddRow(id, "Pending Scene", uuidPtr(authorID), strPtr("Pending Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusPending)
 	mock.ExpectQuery(listPendingQuery).
 		WithArgs(dto.ModerationStatusPending, 0, 20).
 		WillReturnRows(rows)

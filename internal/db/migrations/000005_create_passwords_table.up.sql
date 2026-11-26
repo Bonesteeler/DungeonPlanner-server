@@ -4,5 +4,5 @@ CREATE TABLE public."Passwords" (
     "CreatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
     "UpdatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
     CONSTRAINT "Passwords_pkey" PRIMARY KEY ("ID"),
-    CONSTRAINT "FK_Passwords_User" FOREIGN KEY ("ID") REFERENCES public."Users"("ID")
+    CONSTRAINT "FK_Passwords_User" FOREIGN KEY ("ID") REFERENCES public."Users"("ID") ON DELETE CASCADE
 );

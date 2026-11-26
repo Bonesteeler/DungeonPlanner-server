@@ -66,7 +66,7 @@ func sceneSummariesToModels(scenes []tables.Scene) []model.Scene {
 	for _, s := range scenes {
 		response = append(response, model.Scene{
 			ID:            s.ID.String(),
-			Name:          derefString(s.Name),
+			Name:          s.Name,
 			AuthorID:      derefUUID(s.Author),
 			Author:        derefString(s.AuthorName),
 			UniqueTileIDs: s.UniqueTileIDs,
@@ -86,7 +86,7 @@ func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
 	}
 	response := &model.Scene{
 		ID:            scene.ID.String(),
-		Name:          derefString(scene.Name),
+		Name:          scene.Name,
 		AuthorID:      derefUUID(scene.Author),
 		Author:        derefString(scene.AuthorName),
 		UniqueTileIDs: scene.UniqueTileIDs,
@@ -130,7 +130,7 @@ func (r *SceneRepository) AddScene(request model.Scene) error {
 	}
 	scene := tables.Scene{
 		ID:            sceneID,
-		Name:          &request.Name,
+		Name:          request.Name,
 		Author:        &request.AuthorID,
 		UniqueTileIDs: uniqueTileIDs,
 	}
