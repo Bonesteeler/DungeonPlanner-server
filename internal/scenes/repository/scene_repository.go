@@ -99,7 +99,7 @@ func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
 		tileResponses := make([]model.Tile, 0, len(tiles))
 		for _, t := range tiles {
 			tileResponses = append(tileResponses, model.Tile{
-				TileID:   derefString(t.TileId),
+				TileID:   t.TileId,
 				Rotation: t.Rotation,
 				XPos:     t.XPos,
 				YPos:     t.YPos,
@@ -157,9 +157,9 @@ func (r *SceneRepository) AddScene(request model.Scene) error {
 	for i, layer := range layers {
 		tiles := make([]tables.Tile, 0, len(request.Layers[i].Tiles))
 		for _, tr := range request.Layers[i].Tiles {
-			tileID := tr.TileID
 			tiles = append(tiles, tables.Tile{
-				TileId:   &tileID,
+				ID:       uuid.New(),
+				TileId:   tr.TileID,
 				Rotation: tr.Rotation,
 				XPos:     tr.XPos,
 				YPos:     tr.YPos,
