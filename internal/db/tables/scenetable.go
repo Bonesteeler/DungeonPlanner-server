@@ -1,146 +1,195 @@
 package tables
 
 import (
-    "database/sql"
-    "fmt"
+	"database/sql"
+	"fmt"
 
-    "github.com/google/uuid"
-    "github.com/lib/pq"
+	"github.com/google/uuid"
+	"github.com/lib/pq"
 
-    "dungeonplannerserver/dto"
+	"dungeonplannerserver/dto"
 )
 
 type Scene struct {
-    ID               uuid.UUID
-    Name             *string
-    Author           *uuid.UUID
-    AuthorName       *string
-    UniqueTileIDs    []string
-		Layers 					 []Layer
-    ModerationStatus dto.ModerationStatus
+	ID               uuid.UUID
+	Name             *string
+	Author           *uuid.UUID
+	AuthorName       *string
+	UniqueTileIDs    []string
+	Layers           []Layer
+	ModerationStatus dto.ModerationStatus
 }
 
 func GetAllScenes(db DBTX) ([]Scene, error) {
-    rows, err := db.Query(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author"`)
-    if err != nil {
-        return nil, fmt.Errorf("failed to query scenes: %w", err)
-    }
-    defer rows.Close()
+	rows, err := db.Query(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author"`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query scenes: %w", err)
+	}
+	defer rows.Close()
 
-    var scenes []Scene
-    for rows.Next() {
-        var s Scene
-        err := rows.Scan(
-            &s.ID,
-            &s.Name,
-            &s.Author,
-            &s.AuthorName,
-            pq.Array(&s.UniqueTileIDs),
-            &s.ModerationStatus,
-        )
-        if err != nil {
-            return nil, fmt.Errorf("failed to scan scene row: %w", err)
-        }
-        scenes = append(scenes, s)
-    }
+	var scenes []Scene
+	for rows.Next() {
+		var s Scene
+		err := rows.Scan(
+			&s.ID,
+			&s.Name,
+			&s.Author,
+			&s.AuthorName,
+			pq.Array(&s.UniqueTileIDs),
+			&s.ModerationStatus,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan scene row: %w", err)
+		}
+		scenes = append(scenes, s)
+	}
 
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("error iterating scene rows: %w", err)
-    }
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating scene rows: %w", err)
+	}
 
-    return scenes, nil
+	return scenes, nil
 }
 
 func GetSceneByID(db DBTX, id uuid.UUID) (*Scene, error) {
-    row := db.QueryRow(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ID" = $1`, id)
+	row := db.QueryRow(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ID" = $1`, id)
 
-    var s Scene
-    err := row.Scan(
-        &s.ID,
-        &s.Name,
-        &s.Author,
-        &s.AuthorName,
-        pq.Array(&s.UniqueTileIDs),
-        &s.ModerationStatus,
-    )
-    if err == sql.ErrNoRows {
-        return nil, nil
-    }
-    if err != nil {
-        return nil, fmt.Errorf("failed to scan scene row: %w", err)
-    }
+	var s Scene
+	err := row.Scan(
+		&s.ID,
+		&s.Name,
+		&s.Author,
+		&s.AuthorName,
+		pq.Array(&s.UniqueTileIDs),
+		&s.ModerationStatus,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan scene row: %w", err)
+	}
 
-    return &s, nil
+	return &s, nil
 }
 
 func GetSceneCountsByModerationStatus(db DBTX) (map[dto.ModerationStatus]int, error) {
-		rows, err := db.Query(`SELECT "ModerationStatus", COUNT(*) FROM public."Scenes" GROUP BY "ModerationStatus"`)
-		if err != nil {
-			return nil, fmt.Errorf("failed to query scene counts: %w", err)
+	rows, err := db.Query(`SELECT "ModerationStatus", COUNT(*) FROM public."Scenes" GROUP BY "ModerationStatus"`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query scene counts: %w", err)
+	}
+	defer rows.Close()
+	counts := make(map[dto.ModerationStatus]int)
+	for rows.Next() {
+		var status dto.ModerationStatus
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan scene count row: %w", err)
 		}
-		defer rows.Close()
-		counts := make(map[dto.ModerationStatus]int)
-		for rows.Next() {
-			var status dto.ModerationStatus
-			var count int
-			if err := rows.Scan(&status, &count); err != nil {
-				return nil, fmt.Errorf("failed to scan scene count row: %w", err)
-			}
-			counts[status] = count
-		}
-		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("error iterating scene count rows: %w", err)
-		}
-		return counts, nil
+		counts[status] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating scene count rows: %w", err)
+	}
+	return counts, nil
 }
 
 func GetApprovedSceneCount(db DBTX) (int, error) {
-		var count int
-		err := db.QueryRow(`SELECT COUNT(*) FROM public."Scenes" WHERE "ModerationStatus" = $1`, dto.ModerationStatusApproved).Scan(&count)
-		if err != nil {
-			return 0, fmt.Errorf("failed to query approved scene count: %w", err)
-		}
-		return count, nil
+	var count int
+	err := db.QueryRow(`SELECT COUNT(*) FROM public."Scenes" WHERE "ModerationStatus" = $1`, dto.ModerationStatusApproved).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query approved scene count: %w", err)
+	}
+	return count, nil
 }
 
 func ListApprovedScenes(db DBTX, offset, limit int) ([]Scene, error) {
-		rows, err := db.Query(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ModerationStatus" = $1 ORDER BY s."ID" OFFSET $2 LIMIT $3`, dto.ModerationStatusApproved, offset, limit)
+	rows, err := db.Query(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ModerationStatus" = $1 ORDER BY s."ID" OFFSET $2 LIMIT $3`, dto.ModerationStatusApproved, offset, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query approved scenes: %w", err)
+	}
+	defer rows.Close()
+	var scenes []Scene
+	for rows.Next() {
+		var s Scene
+		err := rows.Scan(
+			&s.ID,
+			&s.Name,
+			&s.Author,
+			&s.AuthorName,
+			pq.Array(&s.UniqueTileIDs),
+			&s.ModerationStatus,
+		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to query approved scenes: %w", err)
+			return nil, fmt.Errorf("failed to scan approved scene row: %w", err)
 		}
-		defer rows.Close()
-		var scenes []Scene
-		for rows.Next() {
-			var s Scene
-			err := rows.Scan(
-				&s.ID,
-				&s.Name,
-				&s.Author,
-				&s.AuthorName,
-				pq.Array(&s.UniqueTileIDs),
-				&s.ModerationStatus,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to scan approved scene row: %w", err)
-			}
-			scenes = append(scenes, s)
+		scenes = append(scenes, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating approved scene rows: %w", err)
+	}
+	return scenes, nil
+}
+
+func GetPendingSceneCount(db DBTX) (int, error) {
+	var count int
+	err := db.QueryRow(`SELECT COUNT(*) FROM public."Scenes" WHERE "ModerationStatus" = $1`, dto.ModerationStatusPending).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query pending scene count: %w", err)
+	}
+	return count, nil
+}
+
+func ListPendingScenes(db DBTX, offset, limit int) ([]Scene, error) {
+	rows, err := db.Query(`SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ModerationStatus" = $1 ORDER BY s."ID" OFFSET $2 LIMIT $3`, dto.ModerationStatusPending, offset, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pending scenes: %w", err)
+	}
+	defer rows.Close()
+
+	var scenes []Scene
+	for rows.Next() {
+		var s Scene
+		if err := rows.Scan(
+			&s.ID,
+			&s.Name,
+			&s.Author,
+			&s.AuthorName,
+			pq.Array(&s.UniqueTileIDs),
+			&s.ModerationStatus,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan pending scene row: %w", err)
 		}
-		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("error iterating approved scene rows: %w", err)
-		}
-		return scenes, nil
+		scenes = append(scenes, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pending scene rows: %w", err)
+	}
+	return scenes, nil
+}
+
+func UpdatePendingSceneModerationStatus(db DBTX, id uuid.UUID, status dto.ModerationStatus) (bool, error) {
+	result, err := db.Exec(`UPDATE public."Scenes" SET "ModerationStatus" = $1 WHERE "ID" = $2 AND "ModerationStatus" = $3`, status, id, dto.ModerationStatusPending)
+	if err != nil {
+		return false, fmt.Errorf("failed to update scene moderation status: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to read moderation update result: %w", err)
+	}
+	return rowsAffected > 0, nil
 }
 
 // Intentionally using transaction here to ensure that all layers are inserted together, maintaining data integrity.
 func InsertScene(tx *sql.Tx, scene Scene) error {
-		stmt, err := tx.Prepare(`INSERT INTO public."Scenes" ("ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus") VALUES ($1, $2, $3, $4, $5)`)
-		if err != nil {
-			return fmt.Errorf("failed to prepare statement: %w", err)
-		}
-		defer stmt.Close()
-		_, err = stmt.Exec(scene.ID, scene.Name, scene.Author, pq.Array(scene.UniqueTileIDs), scene.ModerationStatus)
-		if err != nil {
-			return fmt.Errorf("failed to execute statement: %w", err)
-		}
-		return nil
+	stmt, err := tx.Prepare(`INSERT INTO public."Scenes" ("ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus") VALUES ($1, $2, $3, $4, $5)`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(scene.ID, scene.Name, scene.Author, pq.Array(scene.UniqueTileIDs), scene.ModerationStatus)
+	if err != nil {
+		return fmt.Errorf("failed to execute statement: %w", err)
+	}
+	return nil
 }

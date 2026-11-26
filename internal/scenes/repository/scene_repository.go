@@ -7,160 +7,181 @@ import (
 
 	"github.com/google/uuid"
 
+	"dungeonplannerserver/dto"
 	"dungeonplannerserver/internal/db"
 	"dungeonplannerserver/internal/db/tables"
 	"dungeonplannerserver/internal/scenes/model"
 )
 
 type SceneRepository struct {
-    db *sql.DB
+	db *sql.DB
 }
 
 func NewSceneRepository(e *echo.Echo) (*SceneRepository, error) {
-    password, err := db.GetPasswordSecret()
-    if err != nil {
-        return nil, err
-    }
-		connection, err := db.Connect(password, e)
-		if err != nil {
-			return nil, err
-		}
-    return &SceneRepository{db: connection}, nil
+	password, err := db.GetPasswordSecret()
+	if err != nil {
+		return nil, err
+	}
+	connection, err := db.Connect(password, e)
+	if err != nil {
+		return nil, err
+	}
+	return &SceneRepository{db: connection}, nil
 }
 
 func NewSceneRepositoryWithDB(db *sql.DB) *SceneRepository {
-		return &SceneRepository{db: db}
+	return &SceneRepository{db: db}
 }
 
 func (r *SceneRepository) GetApprovedSceneCount() (int, error) {
-    return tables.GetApprovedSceneCount(r.db)
+	return tables.GetApprovedSceneCount(r.db)
 }
 
 func (r *SceneRepository) ListApprovedScenes(offset int) ([]model.Scene, error) {
-    scenes, err := tables.ListApprovedScenes(r.db, offset, 20)
-    if err != nil {
-        return nil, err
-    }
-    response := make([]model.Scene, 0, len(scenes))
-    for _, s := range scenes {
-        response = append(response, model.Scene{
-            ID:            s.ID.String(),
-            Name:          derefString(s.Name),
-            AuthorID:      derefUUID(s.Author),
-            Author:        derefString(s.AuthorName),
-            UniqueTileIDs: s.UniqueTileIDs,
-        })
-    }
-    return response, nil
+	scenes, err := tables.ListApprovedScenes(r.db, offset, 20)
+	if err != nil {
+		return nil, err
+	}
+	return sceneSummariesToModels(scenes), nil
+}
+
+func (r *SceneRepository) GetPendingSceneCount() (int, error) {
+	return tables.GetPendingSceneCount(r.db)
+}
+
+func (r *SceneRepository) ListPendingScenes(offset int) ([]model.Scene, error) {
+	scenes, err := tables.ListPendingScenes(r.db, offset, 20)
+	if err != nil {
+		return nil, err
+	}
+	return sceneSummariesToModels(scenes), nil
+}
+
+func (r *SceneRepository) UpdateSceneModerationStatus(id uuid.UUID, status dto.ModerationStatus) (bool, error) {
+	return tables.UpdatePendingSceneModerationStatus(r.db, id, status)
+}
+
+func sceneSummariesToModels(scenes []tables.Scene) []model.Scene {
+	response := make([]model.Scene, 0, len(scenes))
+	for _, s := range scenes {
+		response = append(response, model.Scene{
+			ID:            s.ID.String(),
+			Name:          derefString(s.Name),
+			AuthorID:      derefUUID(s.Author),
+			Author:        derefString(s.AuthorName),
+			UniqueTileIDs: s.UniqueTileIDs,
+		})
+	}
+	return response
 }
 
 func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
-    scene, err := tables.GetSceneByID(r.db, id)
-    if err != nil || scene == nil {
-        return nil, err
-    }
-    layers, err := tables.GetLayersBySceneID(r.db, id)
-    if err != nil {
-        return nil, err
-    }
-    response := &model.Scene{
-        ID:            scene.ID.String(),
-        Name:          derefString(scene.Name),
-        AuthorID:      derefUUID(scene.Author),
-        Author:        derefString(scene.AuthorName),
-        UniqueTileIDs: scene.UniqueTileIDs,
-    }
-    for _, layer := range layers {
-        tiles, err := tables.GetTilesByLayerID(r.db, layer.ID)
-        if err != nil {
-            return nil, err
-        }
-        tileResponses := make([]model.Tile, 0, len(tiles))
-        for _, t := range tiles {
-            tileResponses = append(tileResponses, model.Tile{
-                TileID:   derefString(t.TileId),
-                Rotation: t.Rotation,
-                XPos:     t.XPos,
-                YPos:     t.YPos,
-            })
-        }
-        response.Layers = append(response.Layers, model.Layer{
-            Tiles: tileResponses,
-        })
-    }
-    return response, nil
+	scene, err := tables.GetSceneByID(r.db, id)
+	if err != nil || scene == nil {
+		return nil, err
+	}
+	layers, err := tables.GetLayersBySceneID(r.db, id)
+	if err != nil {
+		return nil, err
+	}
+	response := &model.Scene{
+		ID:            scene.ID.String(),
+		Name:          derefString(scene.Name),
+		AuthorID:      derefUUID(scene.Author),
+		Author:        derefString(scene.AuthorName),
+		UniqueTileIDs: scene.UniqueTileIDs,
+	}
+	for _, layer := range layers {
+		tiles, err := tables.GetTilesByLayerID(r.db, layer.ID)
+		if err != nil {
+			return nil, err
+		}
+		tileResponses := make([]model.Tile, 0, len(tiles))
+		for _, t := range tiles {
+			tileResponses = append(tileResponses, model.Tile{
+				TileID:   derefString(t.TileId),
+				Rotation: t.Rotation,
+				XPos:     t.XPos,
+				YPos:     t.YPos,
+			})
+		}
+		response.Layers = append(response.Layers, model.Layer{
+			Tiles: tileResponses,
+		})
+	}
+	return response, nil
 }
 
 func (r *SceneRepository) AddScene(request model.Scene) error {
-    uniqueTileIDMap := make(map[string]bool)
-    for _, layer := range request.Layers {
-        for _, tile := range layer.Tiles {
-            uniqueTileIDMap[tile.TileID] = true
-        }
-    }
-    uniqueTileIDs := make([]string, 0, len(uniqueTileIDMap))
-    for tileID := range uniqueTileIDMap {
-        uniqueTileIDs = append(uniqueTileIDs, tileID)
-    }
-    sceneID, err := uuid.Parse(request.ID)
-    if err != nil {
-        return err
-    }
-    scene := tables.Scene{
-        ID:            sceneID,
-        Name:          &request.Name,
-        Author:        &request.AuthorID,
-        UniqueTileIDs: uniqueTileIDs,
-    }
-    layers := make([]tables.Layer, 0, len(request.Layers))
-    for _, lr := range request.Layers {
-        layers = append(layers, tables.Layer{
-            ID:      uuid.New(),
-            SceneId: sceneID,
-						Height:  lr.Height,
-        })
-    }
+	uniqueTileIDMap := make(map[string]bool)
+	for _, layer := range request.Layers {
+		for _, tile := range layer.Tiles {
+			uniqueTileIDMap[tile.TileID] = true
+		}
+	}
+	uniqueTileIDs := make([]string, 0, len(uniqueTileIDMap))
+	for tileID := range uniqueTileIDMap {
+		uniqueTileIDs = append(uniqueTileIDs, tileID)
+	}
+	sceneID, err := uuid.Parse(request.ID)
+	if err != nil {
+		return err
+	}
+	scene := tables.Scene{
+		ID:            sceneID,
+		Name:          &request.Name,
+		Author:        &request.AuthorID,
+		UniqueTileIDs: uniqueTileIDs,
+	}
+	layers := make([]tables.Layer, 0, len(request.Layers))
+	for _, lr := range request.Layers {
+		layers = append(layers, tables.Layer{
+			ID:      uuid.New(),
+			SceneId: sceneID,
+			Height:  lr.Height,
+		})
+	}
 
-    tx, err := r.db.Begin()
-    if err != nil {
-        return err
-    }
-    defer tx.Rollback()
-    if err = tables.InsertScene(tx, scene); err != nil {
-        return err
-    }
-    if err = tables.InsertLayers(tx, layers); err != nil {
-        return err
-    }
-    for i, layer := range layers {
-        tiles := make([]tables.Tile, 0, len(request.Layers[i].Tiles))
-        for _, tr := range request.Layers[i].Tiles {
-            tileID := tr.TileID
-            tiles = append(tiles, tables.Tile{
-                TileId:  &tileID,
-                Rotation: tr.Rotation,
-                XPos:    tr.XPos,
-                YPos:    tr.YPos,
-                LayerId: layer.ID,
-            })
-        }
-        if err = tables.InsertTiles(tx, tiles); err != nil {
-            return err
-        }
-    }
-    return tx.Commit()
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err = tables.InsertScene(tx, scene); err != nil {
+		return err
+	}
+	if err = tables.InsertLayers(tx, layers); err != nil {
+		return err
+	}
+	for i, layer := range layers {
+		tiles := make([]tables.Tile, 0, len(request.Layers[i].Tiles))
+		for _, tr := range request.Layers[i].Tiles {
+			tileID := tr.TileID
+			tiles = append(tiles, tables.Tile{
+				TileId:   &tileID,
+				Rotation: tr.Rotation,
+				XPos:     tr.XPos,
+				YPos:     tr.YPos,
+				LayerId:  layer.ID,
+			})
+		}
+		if err = tables.InsertTiles(tx, tiles); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func derefString(s *string) string {
-    if s == nil {
-        return ""
-    }
-    return *s
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func derefUUID(u *uuid.UUID) uuid.UUID {
-    if u == nil {
-        return uuid.Nil
-    }
-    return *u
+	if u == nil {
+		return uuid.Nil
+	}
+	return *u
 }

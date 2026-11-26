@@ -40,4 +40,22 @@ func SetupRoutes(e *echo.Echo, sceneHandler *SceneHandler, tokenManager *auth.To
 		}
 		return sceneHandler.AddScene(c, s)
 	})
+
+	moderation := scenes.Group("/moderation")
+	moderation.Use(middleware.CheckRole(middleware.Moderator))
+	moderation.GET("/pending/:start", func(c echo.Context) error {
+		start := c.Param("start")
+		offset, err := strconv.Atoi(start)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid start parameter"})
+		}
+		return sceneHandler.ListPendingScenes(c, offset)
+	})
+	moderation.PATCH("/:id", func(c echo.Context) error {
+		var request dto.UpdateSceneModerationRequest
+		if err := c.Bind(&request); err != nil {
+			return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid request"})
+		}
+		return sceneHandler.UpdateSceneModerationStatus(c, c.Param("id"), request)
+	})
 }

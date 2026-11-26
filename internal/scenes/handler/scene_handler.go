@@ -13,8 +13,10 @@ import (
 
 type SceneService interface {
 	ListScenes(offset int) ([]model.Scene, int)
+	ListPendingScenes(offset int) ([]model.Scene, int, error)
 	GetSceneByID(id uuid.UUID) *model.Scene
 	AddScene(scene model.Scene) error
+	UpdateSceneModerationStatus(id uuid.UUID, status dto.ModerationStatus) (bool, error)
 	GetSceneStats() int
 }
 
@@ -88,6 +90,40 @@ func (h *SceneHandler) ListScenes(c echo.Context, offset int) error {
 		TotalCount: total,
 		PageSize:   pageSize,
 	})
+}
+
+func (h *SceneHandler) ListPendingScenes(c echo.Context, offset int) error {
+	scenes, total, err := h.service.ListPendingScenes(offset)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, struct{ Error string }{Error: "Failed to list pending scenes"})
+	}
+	responses := make([]dto.SceneResponse, 0, len(scenes))
+	for _, scene := range scenes {
+		responses = append(responses, sceneToResponse(scene))
+	}
+	return c.JSON(http.StatusOK, dto.SceneListResponse{
+		Scenes:     responses,
+		TotalCount: total,
+		PageSize:   pageSize,
+	})
+}
+
+func (h *SceneHandler) UpdateSceneModerationStatus(c echo.Context, id string, request dto.UpdateSceneModerationRequest) error {
+	sceneID, err := uuid.Parse(id)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid UUID format"})
+	}
+	if request.Status != dto.ModerationStatusApproved && request.Status != dto.ModerationStatusRejected {
+		return c.JSON(http.StatusBadRequest, struct{ Error string }{Error: "Invalid moderation status"})
+	}
+	updated, err := h.service.UpdateSceneModerationStatus(sceneID, request.Status)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, struct{ Error string }{Error: "Failed to update scene moderation status"})
+	}
+	if !updated {
+		return c.JSON(http.StatusConflict, struct{ Error string }{Error: "Scene not found or no longer pending review"})
+	}
+	return c.JSON(http.StatusOK, struct{ Status string }{Status: "Scene moderation status updated successfully"})
 }
 
 func (h *SceneHandler) GetSceneByID(c echo.Context, id string) error {

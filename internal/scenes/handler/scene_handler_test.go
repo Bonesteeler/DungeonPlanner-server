@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,16 +18,24 @@ import (
 // --- Mock ---
 
 type mockSceneService struct {
-	listScenesFn    func(offset int) ([]model.Scene, int)
-	getSceneByIDFn  func(id uuid.UUID) *model.Scene
-	addSceneFn      func(scene model.Scene) error
-	getSceneStatsFn func() int
+	listScenesFn                  func(offset int) ([]model.Scene, int)
+	listPendingScenesFn           func(offset int) ([]model.Scene, int, error)
+	getSceneByIDFn                func(id uuid.UUID) *model.Scene
+	addSceneFn                    func(scene model.Scene) error
+	updateSceneModerationStatusFn func(id uuid.UUID, status dto.ModerationStatus) (bool, error)
+	getSceneStatsFn               func() int
 }
 
 func (m *mockSceneService) ListScenes(offset int) ([]model.Scene, int) { return m.listScenesFn(offset) }
+func (m *mockSceneService) ListPendingScenes(offset int) ([]model.Scene, int, error) {
+	return m.listPendingScenesFn(offset)
+}
 func (m *mockSceneService) GetSceneByID(id uuid.UUID) *model.Scene { return m.getSceneByIDFn(id) }
 func (m *mockSceneService) AddScene(scene model.Scene) error       { return m.addSceneFn(scene) }
-func (m *mockSceneService) GetSceneStats() int                     { return m.getSceneStatsFn() }
+func (m *mockSceneService) UpdateSceneModerationStatus(id uuid.UUID, status dto.ModerationStatus) (bool, error) {
+	return m.updateSceneModerationStatusFn(id, status)
+}
+func (m *mockSceneService) GetSceneStats() int { return m.getSceneStatsFn() }
 
 // --- Helpers ---
 
@@ -274,5 +283,136 @@ func TestAddScene_DuplicateID_ReturnsConflict(t *testing.T) {
 	}
 	if got.Error != "Scene with this ID already exists" {
 		t.Errorf("error message = %q, want %q", got.Error, "Scene with this ID already exists")
+	}
+}
+
+// --- ListPendingScenes ---
+
+func TestListPendingScenes_ReturnsScenes(t *testing.T) {
+	id := uuid.New()
+	h := NewSceneHandler(&mockSceneService{
+		listPendingScenesFn: func(offset int) ([]model.Scene, int, error) {
+			if offset != 20 {
+				t.Errorf("offset = %d, want 20", offset)
+			}
+			return []model.Scene{{ID: id.String(), Name: "Pending", Author: "Author"}}, 21, nil
+		},
+	})
+	c, rec := newEchoContext(http.MethodGet, "/v1/scenes/moderation/pending/20")
+
+	if err := h.ListPendingScenes(c, 20); err != nil {
+		t.Fatalf("ListPendingScenes() returned error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var got dto.SceneListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if len(got.Scenes) != 1 || got.Scenes[0].ID != id.String() || got.TotalCount != 21 || got.PageSize != pageSize {
+		t.Errorf("unexpected response: %+v", got)
+	}
+}
+
+func TestListPendingScenes_ServiceError(t *testing.T) {
+	h := NewSceneHandler(&mockSceneService{
+		listPendingScenesFn: func(offset int) ([]model.Scene, int, error) {
+			return nil, 0, errors.New("db error")
+		},
+	})
+	c, rec := newEchoContext(http.MethodGet, "/v1/scenes/moderation/pending/0")
+
+	if err := h.ListPendingScenes(c, 0); err != nil {
+		t.Fatalf("ListPendingScenes() returned error: %v", err)
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- UpdateSceneModerationStatus ---
+
+func TestUpdateSceneModerationStatus_ApprovedAndRejected(t *testing.T) {
+	sceneID := uuid.New()
+	for _, status := range []dto.ModerationStatus{dto.ModerationStatusApproved, dto.ModerationStatusRejected} {
+		called := false
+		h := NewSceneHandler(&mockSceneService{
+			updateSceneModerationStatusFn: func(id uuid.UUID, gotStatus dto.ModerationStatus) (bool, error) {
+				called = true
+				if id != sceneID || gotStatus != status {
+					t.Errorf("got ID %v and status %v, want %v and %v", id, gotStatus, sceneID, status)
+				}
+				return true, nil
+			},
+		})
+		c, rec := newEchoContext(http.MethodPatch, "/v1/scenes/moderation/"+sceneID.String())
+
+		if err := h.UpdateSceneModerationStatus(c, sceneID.String(), dto.UpdateSceneModerationRequest{Status: status}); err != nil {
+			t.Fatalf("UpdateSceneModerationStatus() returned error: %v", err)
+		}
+		if !called {
+			t.Error("expected service to be called")
+		}
+		if rec.Code != http.StatusOK {
+			t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+		}
+	}
+}
+
+func TestUpdateSceneModerationStatus_InvalidUUID(t *testing.T) {
+	h := NewSceneHandler(&mockSceneService{})
+	c, rec := newEchoContext(http.MethodPatch, "/v1/scenes/moderation/not-a-uuid")
+
+	if err := h.UpdateSceneModerationStatus(c, "not-a-uuid", dto.UpdateSceneModerationRequest{Status: dto.ModerationStatusApproved}); err != nil {
+		t.Fatalf("UpdateSceneModerationStatus() returned error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestUpdateSceneModerationStatus_InvalidStatus(t *testing.T) {
+	h := NewSceneHandler(&mockSceneService{})
+	for _, status := range []dto.ModerationStatus{dto.ModerationStatusPending, dto.ModerationStatus(99)} {
+		c, rec := newEchoContext(http.MethodPatch, "/v1/scenes/moderation/"+uuid.NewString())
+		if err := h.UpdateSceneModerationStatus(c, uuid.NewString(), dto.UpdateSceneModerationRequest{Status: status}); err != nil {
+			t.Fatalf("UpdateSceneModerationStatus() returned error: %v", err)
+		}
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("moderation status %v returned HTTP %d, want %d", status, rec.Code, http.StatusBadRequest)
+		}
+	}
+}
+
+func TestUpdateSceneModerationStatus_NoPendingSceneReturnsConflict(t *testing.T) {
+	h := NewSceneHandler(&mockSceneService{
+		updateSceneModerationStatusFn: func(id uuid.UUID, status dto.ModerationStatus) (bool, error) {
+			return false, nil
+		},
+	})
+	c, rec := newEchoContext(http.MethodPatch, "/v1/scenes/moderation/"+uuid.NewString())
+
+	if err := h.UpdateSceneModerationStatus(c, uuid.NewString(), dto.UpdateSceneModerationRequest{Status: dto.ModerationStatusApproved}); err != nil {
+		t.Fatalf("UpdateSceneModerationStatus() returned error: %v", err)
+	}
+	if rec.Code != http.StatusConflict {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+}
+
+func TestUpdateSceneModerationStatus_ServiceError(t *testing.T) {
+	h := NewSceneHandler(&mockSceneService{
+		updateSceneModerationStatusFn: func(id uuid.UUID, status dto.ModerationStatus) (bool, error) {
+			return false, errors.New("db error")
+		},
+	})
+	c, rec := newEchoContext(http.MethodPatch, "/v1/scenes/moderation/"+uuid.NewString())
+
+	if err := h.UpdateSceneModerationStatus(c, uuid.NewString(), dto.UpdateSceneModerationRequest{Status: dto.ModerationStatusRejected}); err != nil {
+		t.Fatalf("UpdateSceneModerationStatus() returned error: %v", err)
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 }

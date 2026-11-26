@@ -47,3 +47,7 @@ type SceneListResponse struct {
 type SceneStatsResponse struct {
 	ApprovedScenes int `json:"approved_scenes"`
 }
+
+type UpdateSceneModerationRequest struct {
+	Status ModerationStatus `json:"status"`
+}
