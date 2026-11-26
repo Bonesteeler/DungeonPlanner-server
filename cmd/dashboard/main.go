@@ -14,29 +14,29 @@ const MainTab = "Main"
 const ModerationQueueTab = "Moderation Queue"
 
 func main() {
-    a := app.New()
-    w := a.NewWindow("Dungeon Planner Dashboard")
+	a := app.New()
+	w := a.NewWindow("Dungeon Planner Dashboard")
 
-		scenes := queries.GetAllScenes()
+	scenes := queries.GetAllScenes()
 
-		tabs := container.NewAppTabs(
-			container.NewTabItem(LoginTab, ui.NewLoginUI()),
-			container.NewTabItem(MainTab, ui.NewIndexTab(scenes)),
-			container.NewTabItem(ModerationQueueTab, ui.NewModerationQueueTab(scenes)),
-		)
+	tabs := container.NewAppTabs(
+		container.NewTabItem(LoginTab, ui.NewLoginUI()),
+		container.NewTabItem(MainTab, ui.NewIndexTab(scenes)),
+		container.NewTabItem(ModerationQueueTab, ui.NewModerationQueueTab(nil)),
+	)
 
-		tabs.SetTabLocation(container.TabLocationTop)
+	tabs.SetTabLocation(container.TabLocationTop)
 
-		tabs.OnSelected = func(t *container.TabItem) {
-			if t.Text == MainTab {
-				ui.RefreshIndexTab()
-			}
-			if t.Text == ModerationQueueTab {
-				ui.RefreshModerationQueueTab()
-			}
+	tabs.OnSelected = func(t *container.TabItem) {
+		if t.Text == MainTab {
+			ui.RefreshIndexTab()
 		}
+		if t.Text == ModerationQueueTab {
+			ui.RefreshModerationQueueTab()
+		}
+	}
 
-    w.SetContent(tabs)
-    w.Resize(fyne.NewSize(1200, 500))
-    w.ShowAndRun()
+	w.SetContent(tabs)
+	w.Resize(fyne.NewSize(1200, 500))
+	w.ShowAndRun()
 }

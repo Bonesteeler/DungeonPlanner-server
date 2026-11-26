@@ -13,7 +13,6 @@ import (
 
 func NewLoginUI() fyne.CanvasObject {
 
-
 	return container.NewVBox(
 		NewLoginCard(),
 		NewSignupCard(),
@@ -33,15 +32,15 @@ func NewLoginCard() fyne.Widget {
 			fmt.Println("Login failed:", err)
 			return
 		}
-		fmt.Println("Login successful:", response, " err:", err)
+		fmt.Println("Login successful")
 		internal.SaveTokenPair(response.AccessToken, response.RefreshToken)
 	})
 
-  loginCard := widget.NewCard("", "", container.NewVBox(
+	loginCard := widget.NewCard("", "", container.NewVBox(
 		email,
 		password,
 		loginButton,
-  ))
+	))
 	return loginCard
 }
 
@@ -56,19 +55,19 @@ func NewSignupCard() fyne.Widget {
 	password.SetPlaceHolder("Password")
 
 	signupButton := widget.NewButton("Sign Up", func() {
-		response, err := queries.Signup(email.Text, username.Text, password.Text)
+		_, err := queries.Signup(email.Text, username.Text, password.Text)
 		if err != nil {
 			fmt.Println("Signup failed:", err)
 			return
 		}
-		fmt.Println("Signup successful:", response, " err:", err)
+		fmt.Println("Signup successful")
 	})
 
-  signupCard := widget.NewCard("", "", container.NewVBox(
+	signupCard := widget.NewCard("", "", container.NewVBox(
 		email,
 		username,
 		password,
 		signupButton,
-  ))
+	))
 	return signupCard
 }

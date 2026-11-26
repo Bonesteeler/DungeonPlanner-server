@@ -6,25 +6,40 @@ import (
 
 	"github.com/google/uuid"
 
+	"dungeonplannerserver/dto"
 	"dungeonplannerserver/internal/scenes/model"
 )
 
 // --- Mock ---
 
 type mockSceneRepo struct {
-	listApprovedScenesFn     func(offset int) ([]model.Scene, error)
-	getApprovedSceneCountFn  func() (int, error)
-	getSceneByIDFn           func(id uuid.UUID) (*model.Scene, error)
-	addSceneFn               func(request model.Scene) error
+	listApprovedScenesFn          func(offset int) ([]model.Scene, error)
+	listPendingScenesFn           func(offset int) ([]model.Scene, error)
+	getApprovedSceneCountFn       func() (int, error)
+	getPendingSceneCountFn        func() (int, error)
+	getSceneByIDFn                func(id uuid.UUID) (*model.Scene, error)
+	addSceneFn                    func(request model.Scene) error
+	updateSceneModerationStatusFn func(id uuid.UUID, status dto.ModerationStatus) (bool, error)
 }
 
 func (m *mockSceneRepo) ListApprovedScenes(offset int) ([]model.Scene, error) {
 	return m.listApprovedScenesFn(offset)
 }
 
+func (m *mockSceneRepo) ListPendingScenes(offset int) ([]model.Scene, error) {
+	return m.listPendingScenesFn(offset)
+}
+
 func (m *mockSceneRepo) GetApprovedSceneCount() (int, error) {
 	if m.getApprovedSceneCountFn != nil {
 		return m.getApprovedSceneCountFn()
+	}
+	return 0, nil
+}
+
+func (m *mockSceneRepo) GetPendingSceneCount() (int, error) {
+	if m.getPendingSceneCountFn != nil {
+		return m.getPendingSceneCountFn()
 	}
 	return 0, nil
 }
@@ -35,6 +50,10 @@ func (m *mockSceneRepo) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
 
 func (m *mockSceneRepo) AddScene(request model.Scene) error {
 	return m.addSceneFn(request)
+}
+
+func (m *mockSceneRepo) UpdateSceneModerationStatus(id uuid.UUID, status dto.ModerationStatus) (bool, error) {
+	return m.updateSceneModerationStatusFn(id, status)
 }
 
 // --- Helpers ---
@@ -293,5 +312,122 @@ func TestAddScene_EmptyLayers(t *testing.T) {
 	}
 	if len(captured.Layers) != 0 {
 		t.Errorf("Layers len = %d, want 0", len(captured.Layers))
+	}
+}
+
+// --- ListPendingScenes ---
+
+func TestListPendingScenes_Success(t *testing.T) {
+	id := uuid.New()
+	mock := &mockSceneRepo{
+		getPendingSceneCountFn: func() (int, error) { return 21, nil },
+		listPendingScenesFn: func(offset int) ([]model.Scene, error) {
+			if offset != 20 {
+				t.Errorf("offset = %d, want 20", offset)
+			}
+			return []model.Scene{{ID: id.String(), Name: "Pending", Author: "Author", UniqueTileIDs: []string{"tile1"}}}, nil
+		},
+	}
+	sceneService := NewSceneService(mock)
+
+	result, total, err := sceneService.ListPendingScenes(20)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if total != 21 {
+		t.Errorf("total = %d, want 21", total)
+	}
+	if len(result) != 1 || result[0].ID != id.String() || result[0].Name != "Pending" || result[0].Author != "Author" {
+		t.Errorf("unexpected scenes: %+v", result)
+	}
+}
+
+func TestListPendingScenes_RepoError(t *testing.T) {
+	mock := &mockSceneRepo{
+		listPendingScenesFn: func(offset int) ([]model.Scene, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	sceneService := NewSceneService(mock)
+
+	if _, _, err := sceneService.ListPendingScenes(0); err == nil {
+		t.Fatal("expected repository error")
+	}
+}
+
+func TestListPendingScenes_CountError(t *testing.T) {
+	mock := &mockSceneRepo{
+		getPendingSceneCountFn: func() (int, error) { return 0, errors.New("count error") },
+		listPendingScenesFn: func(offset int) ([]model.Scene, error) {
+			t.Error("list should not be called after count error")
+			return nil, nil
+		},
+	}
+	sceneService := NewSceneService(mock)
+
+	if _, _, err := sceneService.ListPendingScenes(0); err == nil {
+		t.Fatal("expected count error")
+	}
+}
+
+func TestListPendingScenes_NilResultReturnsEmpty(t *testing.T) {
+	mock := &mockSceneRepo{
+		getPendingSceneCountFn: func() (int, error) { return 3, nil },
+		listPendingScenesFn:    func(offset int) ([]model.Scene, error) { return nil, nil },
+	}
+	sceneService := NewSceneService(mock)
+
+	result, total, err := sceneService.ListPendingScenes(0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil || len(result) != 0 || total != 3 {
+		t.Errorf("expected non-nil empty result with total 3, got %#v and %d", result, total)
+	}
+}
+
+// --- UpdateSceneModerationStatus ---
+
+func TestUpdateSceneModerationStatus_ForwardsStatus(t *testing.T) {
+	sceneID := uuid.New()
+	for _, status := range []dto.ModerationStatus{dto.ModerationStatusApproved, dto.ModerationStatusRejected} {
+		mock := &mockSceneRepo{
+			updateSceneModerationStatusFn: func(id uuid.UUID, gotStatus dto.ModerationStatus) (bool, error) {
+				if id != sceneID || gotStatus != status {
+					t.Errorf("got ID %v and status %v, want %v and %v", id, gotStatus, sceneID, status)
+				}
+				return true, nil
+			},
+		}
+		sceneService := NewSceneService(mock)
+
+		updated, err := sceneService.UpdateSceneModerationStatus(sceneID, status)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !updated {
+			t.Error("expected updated result to be forwarded")
+		}
+	}
+}
+
+func TestUpdateSceneModerationStatus_ForwardsNoRowAndError(t *testing.T) {
+	sceneService := NewSceneService(&mockSceneRepo{
+		updateSceneModerationStatusFn: func(id uuid.UUID, status dto.ModerationStatus) (bool, error) {
+			return false, nil
+		},
+	})
+	updated, err := sceneService.UpdateSceneModerationStatus(uuid.New(), dto.ModerationStatusApproved)
+	if err != nil || updated {
+		t.Errorf("got updated=%v err=%v, want false and nil", updated, err)
+	}
+
+	sceneService = NewSceneService(&mockSceneRepo{
+		updateSceneModerationStatusFn: func(id uuid.UUID, status dto.ModerationStatus) (bool, error) {
+			return false, errors.New("db error")
+		},
+	})
+	if _, err := sceneService.UpdateSceneModerationStatus(uuid.New(), dto.ModerationStatusRejected); err == nil {
+		t.Fatal("expected repository error")
 	}
 }

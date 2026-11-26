@@ -3,19 +3,28 @@ package handler
 import (
 	"github.com/labstack/echo/v4"
 
+	"dungeonplannerserver/dto"
 	"dungeonplannerserver/internal/auth"
 	"dungeonplannerserver/internal/auth/middleware"
-	"dungeonplannerserver/dto"
 )
 
 func SetupRoutes(e *echo.Echo, authHandler *AuthHandler, tokenManager *auth.TokenManager) {
 	root := e.Group("/auth")
+	root.Use(middleware.NewRateLimiter())
 	root.POST("/refresh", func(c echo.Context) error {
 		var req dto.RefreshTokenRequest
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(400, struct{ Error string }{Error: "Invalid request"})
 		}
 		return authHandler.GenerateTokensFromRefreshToken(c, req.RefreshToken)
+	})
+
+	root.POST("/logout", func(c echo.Context) error {
+		var req dto.RefreshTokenRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(400, struct{ Error string }{Error: "Invalid request"})
+		}
+		return authHandler.Logout(c, req.RefreshToken)
 	})
 
 	root.POST("/login", func(c echo.Context) error {

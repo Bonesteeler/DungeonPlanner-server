@@ -19,7 +19,7 @@ services:
       - auth-refresh
       - db-password
   db:
-    image: postgres
+    image: postgres:18
     restart: always
     user: postgres
     secrets:

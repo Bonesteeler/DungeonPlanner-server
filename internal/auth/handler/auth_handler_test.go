@@ -16,18 +16,19 @@ import (
 // --- Mock ---
 
 type mockAuthService struct {
-    generateFromRefreshFn func(refreshToken string) (model.TokenPair, error)
-    generateFromLoginFn   func(username, password string) (model.TokenPair, error)
-    storePasswordFn func(username string, password string, email string) (model.TokenPair, error)
-    getUserProfileFn func(userID string) (model.Profile, error)
+	generateFromRefreshFn func(refreshToken string) (model.TokenPair, error)
+	generateFromLoginFn   func(username, password string) (model.TokenPair, error)
+	storePasswordFn       func(username string, password string, email string) (model.TokenPair, error)
+	getUserProfileFn      func(userID string) (model.Profile, error)
+	logoutFn              func(refreshToken string) error
 }
 
 func (m *mockAuthService) GenerateTokensFromRefreshToken(refreshToken string) (model.TokenPair, error) {
-    return m.generateFromRefreshFn(refreshToken)
+	return m.generateFromRefreshFn(refreshToken)
 }
 
 func (m *mockAuthService) GenerateTokensFromLogin(username, password string) (model.TokenPair, error) {
-    return m.generateFromLoginFn(username, password)
+	return m.generateFromLoginFn(username, password)
 }
 
 func (m *mockAuthService) UserSignup(username string, password string, email string) (model.TokenPair, error) {
@@ -38,78 +39,127 @@ func (m *mockAuthService) GetUserProfile(userID string) (model.Profile, error) {
 	return m.getUserProfileFn(userID)
 }
 
+func (m *mockAuthService) Logout(refreshToken string) error {
+	return m.logoutFn(refreshToken)
+}
+
 // --- Helpers ---
 
 func newAuthEchoContext(method, path string) (echo.Context, *httptest.ResponseRecorder) {
-    e := echo.New()
-    req := httptest.NewRequest(method, path, nil)
-    rec := httptest.NewRecorder()
-    return e.NewContext(req, rec), rec
+	e := echo.New()
+	req := httptest.NewRequest(method, path, nil)
+	rec := httptest.NewRecorder()
+	return e.NewContext(req, rec), rec
 }
 
 // --- GenerateTokensFromRefreshToken ---
 
 func TestGenerateTokensFromRefreshToken_Success(t *testing.T) {
-    expected := model.TokenPair{AccessToken: "access-abc", RefreshToken: "refresh-xyz"}
-    h := NewAuthHandler(&mockAuthService{
-        generateFromRefreshFn: func(refreshToken string) (model.TokenPair, error) {
-            return expected, nil
-        },
-    })
+	expected := model.TokenPair{AccessToken: "access-abc", RefreshToken: "refresh-xyz"}
+	h := NewAuthHandler(&mockAuthService{
+		generateFromRefreshFn: func(refreshToken string) (model.TokenPair, error) {
+			return expected, nil
+		},
+	})
 
-    c, rec := newAuthEchoContext(http.MethodPost, "/auth/refresh")
-    if err := h.GenerateTokensFromRefreshToken(c, "refresh-xyz"); err != nil {
-        t.Fatalf("GenerateTokensFromRefreshToken() returned error: %v", err)
-    }
+	c, rec := newAuthEchoContext(http.MethodPost, "/auth/refresh")
+	if err := h.GenerateTokensFromRefreshToken(c, "refresh-xyz"); err != nil {
+		t.Fatalf("GenerateTokensFromRefreshToken() returned error: %v", err)
+	}
 
-    if rec.Code != http.StatusOK {
-        t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
-    }
-    var got dto.GeneratedTokensResponse
-    if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-        t.Fatalf("failed to unmarshal response: %v", err)
-    }
-    if got.AccessToken != expected.AccessToken {
-        t.Errorf("AccessToken = %q, want %q", got.AccessToken, expected.AccessToken)
-    }
-    if got.RefreshToken != expected.RefreshToken {
-        t.Errorf("RefreshToken = %q, want %q", got.RefreshToken, expected.RefreshToken)
-    }
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var got dto.GeneratedTokensResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if got.AccessToken != expected.AccessToken {
+		t.Errorf("AccessToken = %q, want %q", got.AccessToken, expected.AccessToken)
+	}
+	if got.RefreshToken != expected.RefreshToken {
+		t.Errorf("RefreshToken = %q, want %q", got.RefreshToken, expected.RefreshToken)
+	}
 }
 
 func TestGenerateTokensFromRefreshToken_ServiceError_ReturnsUnauthorized(t *testing.T) {
-    h := NewAuthHandler(&mockAuthService{
-        generateFromRefreshFn: func(refreshToken string) (model.TokenPair, error) {
-            return model.TokenPair{}, errors.New("invalid token")
-        },
-    })
+	h := NewAuthHandler(&mockAuthService{
+		generateFromRefreshFn: func(refreshToken string) (model.TokenPair, error) {
+			return model.TokenPair{}, errors.New("invalid token")
+		},
+	})
 
-    c, rec := newAuthEchoContext(http.MethodPost, "/auth/refresh")
-    if err := h.GenerateTokensFromRefreshToken(c, "bad-token"); err != nil {
-        t.Fatalf("GenerateTokensFromRefreshToken() returned error: %v", err)
-    }
+	c, rec := newAuthEchoContext(http.MethodPost, "/auth/refresh")
+	if err := h.GenerateTokensFromRefreshToken(c, "bad-token"); err != nil {
+		t.Fatalf("GenerateTokensFromRefreshToken() returned error: %v", err)
+	}
 
-    if rec.Code != http.StatusUnauthorized {
-        t.Errorf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
-    }
-    var got struct{ Error string }
-    if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-        t.Fatalf("failed to unmarshal response: %v", err)
-    }
-    if got.Error != "Unauthorized" {
-        t.Errorf("error message = %q, want %q", got.Error, "Unauthorized")
-    }
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+	var got struct{ Error string }
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if got.Error != "Unauthorized" {
+		t.Errorf("error message = %q, want %q", got.Error, "Unauthorized")
+	}
+}
+
+func TestLogout_Success(t *testing.T) {
+	h := NewAuthHandler(&mockAuthService{
+		logoutFn: func(refreshToken string) error {
+			if refreshToken != "refresh-xyz" {
+				t.Errorf("refreshToken = %q, want refresh-xyz", refreshToken)
+			}
+			return nil
+		},
+	})
+	c, rec := newAuthEchoContext(http.MethodPost, "/auth/logout")
+
+	if err := h.Logout(c, "refresh-xyz"); err != nil {
+		t.Fatalf("Logout() returned error: %v", err)
+	}
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+	if rec.Body.Len() != 0 {
+		t.Errorf("expected empty response body, got %q", rec.Body.String())
+	}
+}
+
+func TestLogout_ServiceError_ReturnsUnauthorized(t *testing.T) {
+	h := NewAuthHandler(&mockAuthService{
+		logoutFn: func(refreshToken string) error {
+			return errors.New("invalid token")
+		},
+	})
+	c, rec := newAuthEchoContext(http.MethodPost, "/auth/logout")
+
+	if err := h.Logout(c, "bad-token"); err != nil {
+		t.Fatalf("Logout() returned error: %v", err)
+	}
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+	var got struct{ Error string }
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if got.Error != "Unauthorized" {
+		t.Errorf("error message = %q, want %q", got.Error, "Unauthorized")
+	}
 }
 
 // --- GenerateTokensFromLogin ---
 
 func TestGenerateTokensFromLogin_Success(t *testing.T) {
-		expected := model.TokenPair{AccessToken: "access-abc", RefreshToken: "refresh-xyz"}
-		h := NewAuthHandler(&mockAuthService{
-			generateFromLoginFn: func(username, password string) (model.TokenPair, error) {
-				return expected, nil
-			},
-		})
+	expected := model.TokenPair{AccessToken: "access-abc", RefreshToken: "refresh-xyz"}
+	h := NewAuthHandler(&mockAuthService{
+		generateFromLoginFn: func(username, password string) (model.TokenPair, error) {
+			return expected, nil
+		},
+	})
 	c, rec := newAuthEchoContext(http.MethodPost, "/auth/login")
 	if err := h.GenerateTokensFromLogin(c, "testuser", "password"); err != nil {
 		t.Fatalf("GenerateTokensFromLogin() returned error: %v", err)
@@ -191,6 +241,7 @@ func TestStorePassword_ServiceError(t *testing.T) {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 }
+
 // --- GetUserProfile ---
 
 func TestGetUserProfile_Success(t *testing.T) {

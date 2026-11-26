@@ -12,12 +12,12 @@ import (
 
 type mockUserRepo struct {
 	GetPasswordHashByUserIdFunc func(id uuid.UUID) (string, error)
-	StorePasswordHashFunc func(id uuid.UUID, passwordHash string) error
-	IsEmailExistsFunc func(email string) (bool, error)
-	GetUserIdByEmailFunc func(email string) (uuid.UUID, error)
-	GetUserRoleByUserIdFunc func(id uuid.UUID) (string, error)
-	AddUserFunc func(id uuid.UUID, username string, passwordHash string, email string) error
-	GetUserProfileByIdFunc func(id uuid.UUID) (string, string, error)
+	StorePasswordHashFunc       func(id uuid.UUID, passwordHash string) error
+	IsEmailExistsFunc           func(email string) (bool, error)
+	GetUserIdByEmailFunc        func(email string) (uuid.UUID, error)
+	GetUserRoleByUserIdFunc     func(id uuid.UUID) (string, error)
+	AddUserFunc                 func(id uuid.UUID, username string, passwordHash string, email string) error
+	GetUserProfileByIdFunc      func(id uuid.UUID) (string, string, error)
 }
 
 func (m *mockUserRepo) GetPasswordHashByUserId(id uuid.UUID) (string, error) {
@@ -58,19 +58,104 @@ func CreateTestAuthService(passwordRepo UserRepo) *AuthService {
 }
 
 func TestGenerateTokensFromRefreshToken_Success(t *testing.T) {
-	testService := CreateTestAuthService(&mockUserRepo{})
-	testUserID := "user123"
+	testUserID := uuid.New().String()
+	mockRepo := &mockUserRepo{
+		GetUserRoleByUserIdFunc: func(id uuid.UUID) (string, error) {
+			if id.String() != testUserID {
+				t.Errorf("expected user id %v, got %v", testUserID, id)
+			}
+			return "admin", nil
+		},
+	}
+	testService := CreateTestAuthService(mockRepo)
 	testRefreshToken, _ := testService.tokenManager.GenerateRefreshToken(testUserID, "user")
 	testService.refreshTokens.StoreToken(testRefreshToken, testUserID)
 	newTokens, err := testService.GenerateTokensFromRefreshToken(testRefreshToken)
 	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+		t.Fatalf("expected no error, got %v", err)
 	}
 	if newTokens.RefreshToken == "" || newTokens.AccessToken == "" {
 		t.Errorf("expected valid token pair, got %v", newTokens)
 	}
 	if newTokens.RefreshToken == testRefreshToken {
 		t.Errorf("expected new refresh token to be different from old one")
+	}
+	accessClaims, err := testService.tokenManager.ValidateAccessToken(newTokens.AccessToken)
+	if err != nil {
+		t.Fatalf("expected valid access token, got %v", err)
+	}
+	refreshClaims, err := testService.tokenManager.ValidateRefreshToken(newTokens.RefreshToken)
+	if err != nil {
+		t.Fatalf("expected valid refresh token, got %v", err)
+	}
+	if accessClaims.Role != "admin" || refreshClaims.Role != "admin" {
+		t.Errorf("expected current role admin, got access %q and refresh %q", accessClaims.Role, refreshClaims.Role)
+	}
+	if testService.refreshTokens.IsTokenPresent(testRefreshToken, testUserID) {
+		t.Error("expected old refresh token to be revoked")
+	}
+	if !testService.refreshTokens.IsTokenPresent(newTokens.RefreshToken, testUserID) {
+		t.Error("expected new refresh token to be stored")
+	}
+}
+
+func TestGenerateTokensFromRefreshToken_InvalidUserID(t *testing.T) {
+	testService := CreateTestAuthService(&mockUserRepo{})
+	testUserID := "user123"
+	testRefreshToken, _ := testService.tokenManager.GenerateRefreshToken(testUserID, "user")
+	testService.refreshTokens.StoreToken(testRefreshToken, testUserID)
+
+	_, err := testService.GenerateTokensFromRefreshToken(testRefreshToken)
+	if err == nil {
+		t.Error("expected error for invalid user id, got nil")
+	}
+}
+
+func TestGenerateTokensFromRefreshToken_RoleLookupError(t *testing.T) {
+	const databaseError = "database error"
+	testUserID := uuid.New().String()
+	mockRepo := &mockUserRepo{
+		GetUserRoleByUserIdFunc: func(id uuid.UUID) (string, error) {
+			return "", errors.New(databaseError)
+		},
+	}
+	testService := CreateTestAuthService(mockRepo)
+	testRefreshToken, _ := testService.tokenManager.GenerateRefreshToken(testUserID, "user")
+	testService.refreshTokens.StoreToken(testRefreshToken, testUserID)
+
+	_, err := testService.GenerateTokensFromRefreshToken(testRefreshToken)
+	if err == nil || err.Error() != databaseError {
+		t.Errorf("expected error %q, got %v", databaseError, err)
+	}
+	if !testService.refreshTokens.IsTokenPresent(testRefreshToken, testUserID) {
+		t.Error("expected old refresh token to remain valid when refresh fails")
+	}
+}
+
+func TestLogout_RevokesRefreshToken(t *testing.T) {
+	testService := CreateTestAuthService(&mockUserRepo{})
+	testUserID := uuid.New().String()
+	testRefreshToken, _ := testService.tokenManager.GenerateRefreshToken(testUserID, "user")
+	testService.refreshTokens.StoreToken(testRefreshToken, testUserID)
+
+	if err := testService.Logout(testRefreshToken); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if testService.refreshTokens.IsTokenPresent(testRefreshToken, testUserID) {
+		t.Error("expected refresh token to be revoked")
+	}
+	if err := testService.Logout(testRefreshToken); err == nil {
+		t.Error("expected error when logging out an already-revoked token")
+	}
+	if _, err := testService.GenerateTokensFromRefreshToken(testRefreshToken); err == nil {
+		t.Error("expected logged-out refresh token to be rejected")
+	}
+}
+
+func TestLogout_InvalidToken(t *testing.T) {
+	testService := CreateTestAuthService(&mockUserRepo{})
+	if err := testService.Logout("invalid.token.string"); err == nil {
+		t.Error("expected error for invalid token, got nil")
 	}
 }
 
@@ -95,7 +180,7 @@ func TestGenerateTokensFromRefreshToken_TokenNotPresent(t *testing.T) {
 
 func TestGenerateTokensFromLogin_Success(t *testing.T) {
 	expectedEmail := "test@email.com"
-	expectedPassword := "password"
+	expectedPassword := "Password1!"
 	expectedPasswordHash := auth.GenerateString(expectedPassword)
 	expectedUserID := uuid.New()
 	mockRepo := &mockUserRepo{
@@ -128,12 +213,12 @@ func TestGenerateTokensFromLogin_InvalidPassword(t *testing.T) {
 			return uuid.New(), nil
 		},
 		GetPasswordHashByUserIdFunc: func(id uuid.UUID) (string, error) {
-			return "hashed_password", nil
+			return "Password1!", nil
 		},
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	invalidPassword := "wrongpassword"
+	invalidPassword := "WrongPassword1!"
 	_, err := testService.GenerateTokensFromLogin(testEmail, invalidPassword)
 	if err == nil {
 		t.Errorf("expected error for invalid password, got nil")
@@ -157,7 +242,7 @@ func TestStorePasswordHash_Success(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	tokens, err := testService.UserSignup("testuser", "hashed_password", testEmail)
+	tokens, err := testService.UserSignup("testuser", "Password1!", testEmail)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -181,7 +266,7 @@ func TestStorePasswordHash_EmailAlreadyExists(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	_, err := testService.UserSignup("testuser", "hashed_password", testEmail)
+	_, err := testService.UserSignup("testuser", "Password1!", testEmail)
 	if err == nil {
 		t.Errorf("expected error for email already exists, got nil")
 	}
@@ -202,7 +287,7 @@ func TestStorePasswordHash_RepoError(t *testing.T) {
 	}
 	testService := CreateTestAuthService(mockRepo)
 	testEmail := "test@email.com"
-	_, err := testService.UserSignup("username", "hashed_password", testEmail)
+	_, err := testService.UserSignup("username", "Password1!", testEmail)
 	if err == nil {
 		t.Errorf("expected error for repository failure, got nil")
 	}
@@ -255,5 +340,33 @@ func TestGetUserProfile_RepoError(t *testing.T) {
 	}
 	if err.Error() != databaseError {
 		t.Errorf("expected error message '%v', got %v", databaseError, err.Error())
+	}
+}
+
+func TestGenerateTokensFromLogin_InvalidPolicyDoesNotReachRepository(t *testing.T) {
+	testService := CreateTestAuthService(&mockUserRepo{
+		GetUserIdByEmailFunc: func(string) (uuid.UUID, error) {
+			t.Fatal("repository called for policy-invalid login")
+			return uuid.Nil, nil
+		},
+	})
+
+	_, err := testService.GenerateTokensFromLogin("test@email.com", "password")
+	if !errors.Is(err, ErrInvalidPassword) {
+		t.Errorf("error = %v, want ErrInvalidPassword", err)
+	}
+}
+
+func TestUserSignup_InvalidPolicyDoesNotReachRepository(t *testing.T) {
+	testService := CreateTestAuthService(&mockUserRepo{
+		IsEmailExistsFunc: func(string) (bool, error) {
+			t.Fatal("repository called for policy-invalid signup")
+			return false, nil
+		},
+	})
+
+	_, err := testService.UserSignup("testuser", "password", "test@email.com")
+	if !errors.Is(err, ErrInvalidPassword) {
+		t.Errorf("error = %v, want ErrInvalidPassword", err)
 	}
 }

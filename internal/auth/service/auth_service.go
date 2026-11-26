@@ -27,8 +27,8 @@ type UserRepo interface {
 
 type AuthService struct {
 	refreshTokens TokenRepo
-	tokenManager *auth.TokenManager
-	users UserRepo
+	tokenManager  *auth.TokenManager
+	users         UserRepo
 }
 
 func NewAuthService(tokenRepo TokenRepo, tokenManager *auth.TokenManager, userRepo UserRepo) *AuthService {
@@ -43,7 +43,15 @@ func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model
 	if !s.refreshTokens.IsTokenPresent(refreshToken, claims.UserID) {
 		return model.TokenPair{}, errors.New("Unauthorized")
 	}
-	newTokenPair, err := s._issueTokenPair(claims.UserID, claims.Role)
+	userID, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	role, err := s.users.GetUserRoleByUserId(userID)
+	if err != nil {
+		return model.TokenPair{}, err
+	}
+	newTokenPair, err := s._issueTokenPair(claims.UserID, role)
 	if err != nil {
 		return model.TokenPair{}, err
 	}
@@ -52,7 +60,22 @@ func (s *AuthService) GenerateTokensFromRefreshToken(refreshToken string) (model
 	return newTokenPair, nil
 }
 
+func (s *AuthService) Logout(refreshToken string) error {
+	claims, err := s.tokenManager.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		return err
+	}
+	if !s.refreshTokens.IsTokenPresent(refreshToken, claims.UserID) {
+		return errors.New("Unauthorized")
+	}
+	s.refreshTokens.RemoveToken(refreshToken)
+	return nil
+}
+
 func (s *AuthService) GenerateTokensFromLogin(email, password string) (model.TokenPair, error) {
+	if err := validatePassword(password); err != nil {
+		return model.TokenPair{}, err
+	}
 	userID, err := s.users.GetUserIdByEmail(email)
 	if err != nil {
 		return model.TokenPair{}, err
@@ -104,6 +127,9 @@ func (s *AuthService) GetUserProfile(userID string) (model.Profile, error) {
 }
 
 func (s *AuthService) UserSignup(username string, password string, email string) (model.TokenPair, error) {
+	if err := validatePassword(password); err != nil {
+		return model.TokenPair{}, err
+	}
 	id := uuid.New()
 	used, err := s.users.IsEmailExists(email)
 	if err != nil {
