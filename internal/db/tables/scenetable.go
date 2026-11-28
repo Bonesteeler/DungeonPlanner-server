@@ -12,7 +12,7 @@ import (
 
 type Scene struct {
 	ID               uuid.UUID
-	Name             *string
+	Name             string
 	Author           *uuid.UUID
 	AuthorName       *string
 	UniqueTileIDs    []string

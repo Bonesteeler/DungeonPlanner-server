@@ -66,7 +66,7 @@ func sceneSummariesToModels(scenes []tables.Scene) []model.Scene {
 	for _, s := range scenes {
 		response = append(response, model.Scene{
 			ID:            s.ID.String(),
-			Name:          derefString(s.Name),
+			Name:          s.Name,
 			AuthorID:      derefUUID(s.Author),
 			Author:        derefString(s.AuthorName),
 			UniqueTileIDs: s.UniqueTileIDs,
@@ -86,7 +86,7 @@ func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
 	}
 	response := &model.Scene{
 		ID:            scene.ID.String(),
-		Name:          derefString(scene.Name),
+		Name:          scene.Name,
 		AuthorID:      derefUUID(scene.Author),
 		Author:        derefString(scene.AuthorName),
 		UniqueTileIDs: scene.UniqueTileIDs,
@@ -99,14 +99,15 @@ func (r *SceneRepository) GetSceneByID(id uuid.UUID) (*model.Scene, error) {
 		tileResponses := make([]model.Tile, 0, len(tiles))
 		for _, t := range tiles {
 			tileResponses = append(tileResponses, model.Tile{
-				TileID:   derefString(t.TileId),
+				TileID:   t.TileId,
 				Rotation: t.Rotation,
 				XPos:     t.XPos,
 				YPos:     t.YPos,
 			})
 		}
 		response.Layers = append(response.Layers, model.Layer{
-			Tiles: tileResponses,
+			Height: layer.Height,
+			Tiles:  tileResponses,
 		})
 	}
 	return response, nil
@@ -129,7 +130,7 @@ func (r *SceneRepository) AddScene(request model.Scene) error {
 	}
 	scene := tables.Scene{
 		ID:            sceneID,
-		Name:          &request.Name,
+		Name:          request.Name,
 		Author:        &request.AuthorID,
 		UniqueTileIDs: uniqueTileIDs,
 	}
@@ -156,9 +157,9 @@ func (r *SceneRepository) AddScene(request model.Scene) error {
 	for i, layer := range layers {
 		tiles := make([]tables.Tile, 0, len(request.Layers[i].Tiles))
 		for _, tr := range request.Layers[i].Tiles {
-			tileID := tr.TileID
 			tiles = append(tiles, tables.Tile{
-				TileId:   &tileID,
+				ID:       uuid.New(),
+				TileId:   tr.TileID,
 				Rotation: tr.Rotation,
 				XPos:     tr.XPos,
 				YPos:     tr.YPos,

@@ -14,7 +14,7 @@ import (
 
 var sceneColumns = []string{"ID", "Name", "Author", "Username", "UniqueTileIDs", "ModerationStatus"}
 var layerColumns = []string{"ID", "SceneId", "Height"}
-var tileColumns = []string{"TileId", "Rotation", "XPos", "YPos", "LayerId"}
+var tileColumns = []string{"ID", "TileId", "Rotation", "XPos", "YPos", "LayerId"}
 
 func getRepositoryWithMockDB(t *testing.T) (*SceneRepository, sqlmock.Sqlmock) {
 	t.Helper()
@@ -89,7 +89,7 @@ func TestListApprovedScenes_ReturnsScenes(t *testing.T) {
 	id := uuid.New()
 	authorID := uuid.New()
 	rows := sqlmock.NewRows(sceneColumns).
-		AddRow(id, strPtr("Test Scene"), uuidPtr(authorID), strPtr("Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusApproved)
+		AddRow(id, "Test Scene", uuidPtr(authorID), strPtr("Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusApproved)
 
 	mock.ExpectQuery(listApprovedQuery).
 		WithArgs(dto.ModerationStatusApproved, 0, 20).
@@ -174,7 +174,7 @@ func TestListApprovedScenes_DBError(t *testing.T) {
 
 const getSceneByIDQuery = `SELECT s."ID", s."Name", s."Author", u."Username", s."UniqueTileIDs", s."ModerationStatus" FROM public."Scenes" s LEFT JOIN public."Users" u ON u."ID" = s."Author" WHERE s."ID" = $1`
 const getLayersBySceneIDQuery = `SELECT "ID", "SceneId", "Height" FROM public."Layers" WHERE "SceneId" = $1`
-const getTilesByLayerIDQuery = `SELECT "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" = $1`
+const getTilesByLayerIDQuery = `SELECT "ID", "TileId", "Rotation", "XPos", "YPos", "LayerId" FROM public."Tiles" WHERE "LayerId" = $1`
 
 func TestGetSceneByID_Found(t *testing.T) {
 	repo, mock := getRepositoryWithMockDB(t)
@@ -186,17 +186,17 @@ func TestGetSceneByID_Found(t *testing.T) {
 	mock.ExpectQuery(getSceneByIDQuery).
 		WithArgs(sceneID).
 		WillReturnRows(sqlmock.NewRows(sceneColumns).
-			AddRow(sceneID, strPtr("My Scene"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), dto.ModerationStatusApproved))
+			AddRow(sceneID, "My Scene", uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{"tile-a"}), dto.ModerationStatusApproved))
 
 	mock.ExpectQuery(getLayersBySceneIDQuery).
 		WithArgs(sceneID).
 		WillReturnRows(sqlmock.NewRows(layerColumns).
-			AddRow(layerID, sceneID, 0))
+			AddRow(layerID, sceneID, 50))
 
 	mock.ExpectQuery(getTilesByLayerIDQuery).
 		WithArgs(layerID).
 		WillReturnRows(sqlmock.NewRows(tileColumns).
-			AddRow(strPtr(tileID), 0, 1, 2, layerID))
+			AddRow(uuid.New(), tileID, 0, 1, 2, layerID))
 
 	scene, err := repo.GetSceneByID(sceneID)
 	if err != nil {
@@ -210,6 +210,9 @@ func TestGetSceneByID_Found(t *testing.T) {
 	}
 	if len(scene.Layers) != 1 {
 		t.Fatalf("expected 1 layer, got %d", len(scene.Layers))
+	}
+	if scene.Layers[0].Height != 50 {
+		t.Errorf("expected layer height 50, got %d", scene.Layers[0].Height)
 	}
 	if len(scene.Layers[0].Tiles) != 1 {
 		t.Errorf("expected 1 tile, got %d", len(scene.Layers[0].Tiles))
@@ -248,7 +251,7 @@ func TestGetSceneByID_NoLayers(t *testing.T) {
 	mock.ExpectQuery(getSceneByIDQuery).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows(sceneColumns).
-			AddRow(id, strPtr("Scene With No Layers"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
+			AddRow(id, "Scene With No Layers", uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
 	mock.ExpectQuery(getLayersBySceneIDQuery).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows(layerColumns))
@@ -292,7 +295,7 @@ func TestGetSceneByID_LayersQueryError(t *testing.T) {
 	mock.ExpectQuery(getSceneByIDQuery).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows(sceneColumns).
-			AddRow(id, strPtr("Scene"), uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
+			AddRow(id, "Scene", uuidPtr(uuid.New()), strPtr("Author"), pqArrayValue(t, []string{}), dto.ModerationStatusApproved))
 
 	mock.ExpectQuery(getLayersBySceneIDQuery).
 		WithArgs(id).
@@ -311,7 +314,7 @@ func TestGetSceneByID_LayersQueryError(t *testing.T) {
 
 const insertSceneQuery = `INSERT INTO public."Scenes" ("ID", "Name", "Author", "UniqueTileIDs", "ModerationStatus") VALUES ($1, $2, $3, $4, $5)`
 const insertLayerQuery = `INSERT INTO public."Layers" ("ID", "SceneId", "Height") VALUES ($1, $2, $3)`
-const insertTileQuery = `INSERT INTO public."Tiles" ("TileId", "Rotation", "XPos", "YPos", "LayerId") VALUES ($1, $2, $3, $4, $5)`
+const insertTileQuery = `INSERT INTO public."Tiles" ("ID", "TileId", "Rotation", "XPos", "YPos", "LayerId") VALUES ($1, $2, $3, $4, $5, $6)`
 
 func TestAddScene_Success(t *testing.T) {
 	repo, mock := getRepositoryWithMockDB(t)
@@ -340,7 +343,7 @@ func TestAddScene_Success(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectPrepare(insertTileQuery).
 		ExpectExec().
-		WithArgs("tile-1", 90, 3, 5, sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "tile-1", 90, 3, 5, sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -480,7 +483,7 @@ func TestListPendingScenes_ReturnsScenes(t *testing.T) {
 	id := uuid.New()
 	authorID := uuid.New()
 	rows := sqlmock.NewRows(sceneColumns).
-		AddRow(id, strPtr("Pending Scene"), uuidPtr(authorID), strPtr("Pending Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusPending)
+		AddRow(id, "Pending Scene", uuidPtr(authorID), strPtr("Pending Author"), pqArrayValue(t, []string{"tile1", "tile2"}), dto.ModerationStatusPending)
 	mock.ExpectQuery(listPendingQuery).
 		WithArgs(dto.ModerationStatusPending, 0, 20).
 		WillReturnRows(rows)

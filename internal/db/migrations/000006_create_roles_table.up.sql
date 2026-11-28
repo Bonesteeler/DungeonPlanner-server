@@ -1,6 +1,7 @@
 CREATE TABLE public."Roles" (
-    "ID"   INTEGER PRIMARY KEY,
-    "Name" TEXT NOT NULL UNIQUE
+    "ID"   INTEGER,
+    "Name" TEXT NOT NULL UNIQUE,
+    CONSTRAINT "Roles_pkey" PRIMARY KEY ("ID")
 );
 
 INSERT INTO public."Roles" ("ID", "Name") VALUES
